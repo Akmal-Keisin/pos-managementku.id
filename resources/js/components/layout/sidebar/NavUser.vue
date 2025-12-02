@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import UserInfo from '@/components/UserInfo.vue';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -13,6 +12,7 @@ import {
 } from '@/components/ui/sidebar';
 import { usePage } from '@inertiajs/vue3';
 import { ChevronsUpDown } from 'lucide-vue-next';
+import UserInfo from './UserInfo.vue';
 import UserMenuContent from './UserMenuContent.vue';
 
 const page = usePage();

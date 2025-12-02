@@ -4,8 +4,8 @@ import { Form } from '@inertiajs/vue3';
 import { useTemplateRef } from 'vue';
 
 // Components
-import HeadingSmall from '@/components/HeadingSmall.vue';
-import InputError from '@/components/InputError.vue';
+import HeadingSmall from '@/components/ui/HeadingSmall.vue';
+import InputError from '@/components/ui/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,

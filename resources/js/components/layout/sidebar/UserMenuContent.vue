@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import UserInfo from '@/components/UserInfo.vue';
 import {
     DropdownMenuGroup,
     DropdownMenuItem,
@@ -11,6 +10,7 @@ import { edit } from '@/routes/profile';
 import type { User } from '@/types';
 import { Link, router } from '@inertiajs/vue3';
 import { LogOut, Settings } from 'lucide-vue-next';
+import UserInfo from './UserInfo.vue';
 
 interface Props {
     user: User;
