@@ -18,10 +18,14 @@ class PosViewController extends Controller
         $query = Product::query()->whereNull('deleted_at');
 
         if ($request->has('search')) {
-            $query->where('name', 'like', '%' . $request->get('search') . '%');
+            $query->where(function ($q) use ($request) {
+                $q->where('name', 'like', '%' . $request->get('search') . '%')
+                    ->orWhere('sku', 'like', '%' . $request->get('search') . '%');
+            });
         }
 
-        $products = $query->paginate(12)->withQueryString();
+        $perPage = $request->get('per_page', 20);
+        $products = $query->orderBy('name')->paginate($perPage)->withQueryString();
 
         return Inertia::render('pos/Index', [
             'products' => $products,
