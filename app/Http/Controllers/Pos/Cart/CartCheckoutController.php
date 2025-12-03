@@ -9,6 +9,7 @@ use App\Models\Transaction;
 use App\Models\TransactionDetail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class CartCheckoutController extends Controller
 {
@@ -72,6 +73,10 @@ class CartCheckoutController extends Controller
             return redirect('/pos-terminal')->with('success', 'Checkout successful.');
         } catch (\Throwable $e) {
             DB::rollBack();
+            Log::error('POS cart checkout failed', [
+                'user_id' => $user->id ?? null,
+                'message' => $e->getMessage(),
+            ]);
             return redirect()->back()->with('error', 'Checkout failed.');
         }
     }
