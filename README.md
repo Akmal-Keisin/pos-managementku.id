@@ -28,6 +28,34 @@ A comprehensive Point of Sales management system built with Laravel 12, Inertia.
 - Search by product name or SKU
 - Soft delete with partial unique indexes
 - Track current stock and total sold
+- Product images: products can now store a public image path (stored on Laravel `public` disk). Create/Edit forms support image upload and preview; product cards and the POS terminal display the image when available.
+
+### POS Terminal & Cart
+
+**Access**: Super Admin, Admin, Cashier
+
+**Routes**:
+- POS Terminal: `/pos-terminal` (grid of product cards)
+- Add single product checkout: `POST /pos-terminal/checkout`
+- Add to cart: `POST /pos-terminal/add-to-cart`
+- Cart view: `/pos-terminal/{user}/cart`
+- Cart actions: update `PUT /pos-terminal/{user}/cart/{cartItem}`, remove `DELETE /pos-terminal/{user}/cart/{cartItem}`, clear `DELETE /pos-terminal/{user}/cart/clear`, checkout `POST /pos-terminal/{user}/cart/checkout`
+
+**Features & UX**:
+- Grid-based product cards with responsive images, name, SKU, price, stock and total sold.
+- Click a product to open a detail `Sheet` (shadcn-vue) showing product details and actions:
+    - Add to Cart: add the selected quantity to the authenticated user's cart (cart is scoped per user so multiple cashiers do not conflict).
+    - Checkout (single): immediately create a transaction for the single product + quantity.
+- Cart page shows each item, allows editing quantity, removing items, clearing the cart, or checking out the whole cart. Checkout creates `transactions` and `transaction_details`, updates product stock and total_sold, and clears the user's cart on success.
+
+**Implementation notes**:
+- New migrations were added: `transactions`, `transaction_details`, and `cart_items`.
+- Models: `Transaction`, `TransactionDetail`, and `CartItem` represent the transactions and per-user cart.
+- Controllers follow the modular pattern:
+  - View controller: `PosViewController` (renders POS terminal page)
+  - Action controllers: `PosAddToCartController`, `PosCheckoutSingleController` (invokable controllers for actions)
+  - Cart module controllers (nested under `Pos/Cart/`): `CartViewController`, `CartUpdateController`, `CartDeleteController`, `CartClearController`, `CartCheckoutController`
+- Images uploaded via product forms are stored on the `public` disk and served via the `storage` symlink (`php artisan storage:link`). Old images are deleted when a product's image is replaced.
 
 ### Stock Management
 - Stock history tracking (increase/decrease)
@@ -67,9 +95,19 @@ app/
 │   │   │   ├── ProductManagementStoreController.php
 │   │   │   ├── ProductManagementUpdateController.php
 │   │   │   └── ProductManagementDeleteController.php
-│   │   └── StockManagement/          # Stock management controllers
-│   │       ├── StockManagementViewController.php
-│   │       └── StockManagementUpdateStockController.php
+│   │   ├── StockManagement/          # Stock management controllers
+│   │   │   ├── StockManagementViewController.php
+│   │   │   └── StockManagementUpdateStockController.php
+│   │   └── Pos/                      # POS and Cart controllers
+│   │       ├── PosViewController.php
+│   │       ├── PosAddToCartController.php
+│   │       ├── PosCheckoutSingleController.php
+│   │       └── Cart/                 # Cart module (nested under Pos)
+│   │           ├── CartViewController.php
+│   │           ├── CartUpdateController.php
+│   │           ├── CartDeleteController.php
+│   │           ├── CartClearController.php
+│   │           └── CartCheckoutController.php
 │   ├── Middleware/
 │   │   └── CheckRole.php             # Role-based authorization middleware
 │   ├── Requests/
@@ -377,7 +415,7 @@ php artisan test
 - Role-based authorization on routes and form requests
 - CSRF protection on all forms
 - Password hashing using bcrypt
-- SQL injection prevention via Eloquent ORM
+- SQL injection prevention via Eloquent  ORM
 - XSS protection via Vue.js escaping
 
 ## Contributing
@@ -394,4 +432,4 @@ This project is licensed under the MIT License.
 
 ## Support
 
-For support, email your-email@example.com or open an issue in the repository.
+For support, email akmalkeisin@gmail.com or open an issue in the repository.

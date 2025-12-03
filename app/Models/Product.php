@@ -58,7 +58,10 @@ class Product extends Model
             return null;
         }
 
-        return Storage::disk('public')->url($this->image);
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+        $disk = Storage::disk('public');
+
+        return $disk->url($this->image);
     }
 
     /**
