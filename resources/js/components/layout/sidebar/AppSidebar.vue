@@ -13,7 +13,14 @@ import {
 import { dashboard } from '@/routes';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import { FileText, History, LayoutGrid, Package, Users } from 'lucide-vue-next';
+import {
+    FileText,
+    History,
+    LayoutGrid,
+    MessageSquare,
+    Package,
+    Users,
+} from 'lucide-vue-next';
 import { computed } from 'vue';
 import NavFooter from './NavFooter.vue';
 import NavMain from './NavMain.vue';
@@ -54,6 +61,12 @@ const navigationConfig = {
         title: 'Reporting',
         href: '/reporting',
         icon: FileText,
+        roles: ['super-admin', 'admin'],
+    },
+    chatbot: {
+        title: 'Chatbot',
+        href: '/chatbot',
+        icon: MessageSquare,
         roles: ['super-admin', 'admin'],
     },
     posTerminal: {

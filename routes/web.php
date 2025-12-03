@@ -20,6 +20,11 @@ use App\Http\Controllers\Pos\Cart\CartUpdateController;
 use App\Http\Controllers\Pos\Cart\CartDeleteController;
 use App\Http\Controllers\Pos\Cart\CartClearController;
 use App\Http\Controllers\Pos\Cart\CartCheckoutController;
+use App\Http\Controllers\Chatbot\ChatbotViewController;
+use App\Http\Controllers\Chatbot\ChatbotTopicStoreController;
+use App\Http\Controllers\Chatbot\ChatbotTopicDeleteController;
+use App\Http\Controllers\Chatbot\ChatbotTopicClearController;
+use App\Http\Controllers\Chatbot\ChatbotMessageStoreController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
@@ -80,6 +85,17 @@ Route::prefix('stock-management')->name('stock-management.')->middleware(['auth'
 Route::prefix('reporting')->name('reporting.')->middleware(['auth', 'verified', 'role:super-admin,admin'])->group(function () {
     Route::get('/', [ReportingViewController::class, 'index'])->name('index');
     Route::get('/{transaction}', [ReportingViewController::class, 'show'])->name('show');
+});
+
+// Chatbot - accessible by all authenticated and verified users
+Route::prefix('chatbot')->name('chatbot.')->middleware(['auth', 'verified'])->group(function () {
+    Route::get('/', [ChatbotViewController::class, 'index'])->name('index');
+    // Topics
+    Route::post('/topics', ChatbotTopicStoreController::class)->name('topics.store');
+    Route::delete('/topics/{topic}', ChatbotTopicDeleteController::class)->name('topics.destroy');
+    Route::delete('/topics/{topic}/clear', ChatbotTopicClearController::class)->name('topics.clear');
+    // Messages
+    Route::post('/topics/{topic}/messages', ChatbotMessageStoreController::class)->name('messages.store');
 });
 
 require __DIR__ . '/settings.php';
