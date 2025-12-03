@@ -8,6 +8,7 @@ use App\Models\Transaction;
 use App\Models\TransactionDetail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class PosCheckoutSingleController extends Controller
 {
@@ -56,6 +57,12 @@ class PosCheckoutSingleController extends Controller
             return redirect('/pos-terminal')->with('success', 'Checkout successful.');
         } catch (\Throwable $e) {
             DB::rollBack();
+            Log::error('POS single checkout failed', [
+                'user_id' => $user->id ?? null,
+                'product_id' => $data['product_id'] ?? null,
+                'quantity' => $data['quantity'] ?? null,
+                'message' => $e->getMessage(),
+            ]);
             return redirect()->back()->with('error', 'Checkout failed.');
         }
     }

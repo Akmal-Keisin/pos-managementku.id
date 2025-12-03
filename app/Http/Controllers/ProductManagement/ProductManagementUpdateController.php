@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ProductManagement\ProductManagementUpdateRequest;
 use App\Models\Product;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class ProductManagementUpdateController extends Controller
 {
@@ -38,6 +39,10 @@ class ProductManagementUpdateController extends Controller
                 ->route('product-management.index')
                 ->with('success', 'Product updated successfully.');
         } catch (\Exception $e) {
+            Log::error('Product update failed', [
+                'product_id' => $product->id ?? null,
+                'message' => $e->getMessage(),
+            ]);
             return redirect()
                 ->back()
                 ->withInput()

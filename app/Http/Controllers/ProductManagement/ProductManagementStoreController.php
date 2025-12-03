@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\StockHistory;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class ProductManagementStoreController extends Controller
 {
@@ -48,6 +49,12 @@ class ProductManagementStoreController extends Controller
                 ->route('product-management.index')
                 ->with('success', 'Product created successfully.');
         } catch (\Exception $e) {
+            Log::error('Product create failed', [
+                'user_id' => Auth::id(),
+                'name' => $request->name ?? null,
+                'sku' => $request->sku ?? null,
+                'message' => $e->getMessage(),
+            ]);
             return redirect()
                 ->back()
                 ->withInput()

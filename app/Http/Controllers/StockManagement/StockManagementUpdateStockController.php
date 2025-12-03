@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\StockHistory;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class StockManagementUpdateStockController extends Controller
 {
@@ -54,6 +55,13 @@ class StockManagementUpdateStockController extends Controller
                 ->with('success', 'Stock updated successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Stock update failed', [
+                'user_id' => Auth::id(),
+                'product_id' => $request->product ?? null,
+                'type' => $request->type ?? null,
+                'quantity' => $request->update_stock ?? null,
+                'message' => $e->getMessage(),
+            ]);
 
             return redirect()
                 ->back()
