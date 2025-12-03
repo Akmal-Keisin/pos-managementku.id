@@ -24,14 +24,19 @@ class UserManagementDeleteController extends Controller
             if ($request->user()->id === $user->id) {
                 return redirect()
                     ->back()
-                    ->with('error', 'You cannot delete your own account.');
+                    ->with('alert', [
+                        'type' => 'error',
+                        'message' => 'You cannot delete your own account.',
+                    ]);
             }
-
             $user->delete();
 
             return redirect()
                 ->route('user-management.index')
-                ->with('success', 'User deleted successfully.');
+                ->with('alert', [
+                    'type' => 'success',
+                    'message' => 'User deleted successfully.',
+                ]);
         } catch (\Exception $e) {
             Log::error('User delete failed', [
                 'user_id' => $user->id ?? null,
@@ -39,7 +44,11 @@ class UserManagementDeleteController extends Controller
             ]);
             return redirect()
                 ->back()
-                ->with('error', 'Failed to delete user: ' . $e->getMessage());
+                ->with('alert', [
+                    'type' => 'error',
+                    'message' => 'Failed to delete user.',
+                    'description' => $e->getMessage(),
+                ]);
         }
     }
 }

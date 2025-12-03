@@ -14,6 +14,9 @@ class CartClearController extends Controller
     {
         CartItem::where('user_id', $userId)->delete();
 
-        return redirect()->back()->with('success', 'Cart cleared.');
+        return redirect()->back()->with('alert', [
+            'type' => 'success',
+            'message' => 'Cart cleared.',
+        ]);
     }
 }

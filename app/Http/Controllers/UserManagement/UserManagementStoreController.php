@@ -36,7 +36,11 @@ class UserManagementStoreController extends Controller
             return redirect()
                 ->back()
                 ->withInput()
-                ->with('error', 'Failed to create user: ' . $e->getMessage());
+                ->with('alert', [
+                    'type' => 'error',
+                    'message' => 'Failed to create user.',
+                    'description' => $e->getMessage(),
+                ]);
         }
     }
 }

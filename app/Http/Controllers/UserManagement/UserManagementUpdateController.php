@@ -40,7 +40,11 @@ class UserManagementUpdateController extends Controller
             return redirect()
                 ->back()
                 ->withInput()
-                ->with('error', 'Failed to update user: ' . $e->getMessage());
+                ->with('alert', [
+                    'type' => 'error',
+                    'message' => 'Failed to update user.',
+                    'description' => $e->getMessage(),
+                ]);
         }
     }
 }

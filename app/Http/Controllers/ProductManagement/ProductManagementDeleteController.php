@@ -18,7 +18,10 @@ class ProductManagementDeleteController extends Controller
 
             return redirect()
                 ->route('product-management.index')
-                ->with('success', 'Product deleted successfully.');
+                ->with('alert', [
+                    'type' => 'success',
+                    'message' => 'Product deleted successfully.',
+                ]);
         } catch (\Exception $e) {
             Log::error('Product delete failed', [
                 'product_id' => $product->id ?? null,
@@ -26,7 +29,11 @@ class ProductManagementDeleteController extends Controller
             ]);
             return redirect()
                 ->back()
-                ->with('error', 'Failed to delete product: ' . $e->getMessage());
+                ->with('alert', [
+                    'type' => 'error',
+                    'message' => 'Failed to delete product.',
+                    'description' => $e->getMessage(),
+                ]);
         }
     }
 }

@@ -32,7 +32,11 @@ class StockManagementUpdateStockController extends Controller
                     return redirect()
                         ->back()
                         ->withInput()
-                        ->with('error', 'Insufficient stock. Current stock: ' . $product->current_stock);
+                        ->with('alert', [
+                            'type' => 'error',
+                            'message' => 'Insufficient stock.',
+                            'description' => 'Current stock: ' . $product->current_stock,
+                        ]);
                 }
                 $product->current_stock -= $quantity;
             }
@@ -52,7 +56,10 @@ class StockManagementUpdateStockController extends Controller
 
             return redirect()
                 ->route('stock-management.index')
-                ->with('success', 'Stock updated successfully.');
+                ->with('alert', [
+                    'type' => 'success',
+                    'message' => 'Stock updated successfully.',
+                ]);
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Stock update failed', [
@@ -66,7 +73,11 @@ class StockManagementUpdateStockController extends Controller
             return redirect()
                 ->back()
                 ->withInput()
-                ->with('error', 'Failed to update stock: ' . $e->getMessage());
+                ->with('alert', [
+                    'type' => 'error',
+                    'message' => 'Failed to update stock.',
+                    'description' => $e->getMessage(),
+                ]);
         }
     }
 }
