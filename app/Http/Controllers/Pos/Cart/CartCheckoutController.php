@@ -28,7 +28,10 @@ class CartCheckoutController extends Controller
         $items = CartItem::with('product')->where('user_id', $userId)->get();
 
         if ($items->isEmpty()) {
-            return redirect()->back()->with('error', 'Cart is empty.');
+            return redirect()->back()->with('alert', [
+                'type' => 'error',
+                'message' => 'Cart is empty.',
+            ]);
         }
 
         DB::beginTransaction();
@@ -49,7 +52,10 @@ class CartCheckoutController extends Controller
 
                 if (!$product || $product->current_stock < $item->quantity) {
                     DB::rollBack();
-                    return redirect()->back()->with('error', "Not enough stock for {$item->product->name}.");
+                    return redirect()->back()->with('alert', [
+                        'type' => 'error',
+                        'message' => "Not enough stock for {$item->product->name}.",
+                    ]);
                 }
 
                 TransactionDetail::create([
@@ -70,14 +76,20 @@ class CartCheckoutController extends Controller
 
             DB::commit();
 
-            return redirect('/pos-terminal')->with('success', 'Checkout successful.');
+            return redirect('/pos-terminal')->with('alert', [
+                'type' => 'success',
+                'message' => 'Checkout successful.',
+            ]);
         } catch (\Throwable $e) {
             DB::rollBack();
             Log::error('POS cart checkout failed', [
                 'user_id' => $user->id ?? null,
                 'message' => $e->getMessage(),
             ]);
-            return redirect()->back()->with('error', 'Checkout failed.');
+            return redirect()->back()->with('alert', [
+                'type' => 'error',
+                'message' => 'Checkout failed.',
+            ]);
         }
     }
 }

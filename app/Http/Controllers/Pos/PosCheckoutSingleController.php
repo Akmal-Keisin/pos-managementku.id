@@ -27,12 +27,15 @@ class PosCheckoutSingleController extends Controller
         $product = Product::lockForUpdate()->findOrFail($data['product_id']);
 
         if ($product->current_stock < $data['quantity']) {
-            return redirect()->back()->with('error', 'Not enough stock for this product.');
+            return redirect()->back()->with('alert', [
+                'type' => 'error',
+                'message' => 'Not enough stock for this product.',
+            ]);
         }
 
         DB::beginTransaction();
         try {
-            $total = bcmul((string)$product->price, (string)$data['quantity'], 2);
+            $total = (float) $product->price * $data['quantity'];
 
             $transaction = Transaction::create([
                 'user_id' => $user->id,
@@ -54,7 +57,10 @@ class PosCheckoutSingleController extends Controller
 
             DB::commit();
 
-            return redirect('/pos-terminal')->with('success', 'Checkout successful.');
+            return redirect('/pos-terminal')->with('alert', [
+                'type' => 'success',
+                'message' => 'Checkout successful.',
+            ]);
         } catch (\Throwable $e) {
             DB::rollBack();
             Log::error('POS single checkout failed', [
@@ -63,7 +69,10 @@ class PosCheckoutSingleController extends Controller
                 'quantity' => $data['quantity'] ?? null,
                 'message' => $e->getMessage(),
             ]);
-            return redirect()->back()->with('error', 'Checkout failed.');
+            return redirect()->back()->with('alert', [
+                'type' => 'error',
+                'message' => 'Checkout failed.',
+            ]);
         }
     }
 }

@@ -18,6 +18,9 @@ class CartDeleteController extends Controller
 
 		$cartItem->delete();
 
-		return redirect()->back()->with('success', 'Item removed.');
+		return redirect()->back()->with('alert', [
+			'type' => 'success',
+			'message' => 'Item removed.',
+		]);
 	}
 }

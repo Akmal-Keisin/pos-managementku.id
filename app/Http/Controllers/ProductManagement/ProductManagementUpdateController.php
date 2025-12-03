@@ -37,7 +37,10 @@ class ProductManagementUpdateController extends Controller
 
             return redirect()
                 ->route('product-management.index')
-                ->with('success', 'Product updated successfully.');
+                ->with('alert', [
+                    'type' => 'success',
+                    'message' => 'Product updated successfully.',
+                ]);
         } catch (\Exception $e) {
             Log::error('Product update failed', [
                 'product_id' => $product->id ?? null,
@@ -46,7 +49,11 @@ class ProductManagementUpdateController extends Controller
             return redirect()
                 ->back()
                 ->withInput()
-                ->with('error', 'Failed to update product: ' . $e->getMessage());
+                ->with('alert', [
+                    'type' => 'error',
+                    'message' => 'Failed to update product.',
+                    'description' => $e->getMessage(),
+                ]);
         }
     }
 }

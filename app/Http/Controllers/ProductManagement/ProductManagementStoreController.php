@@ -47,7 +47,10 @@ class ProductManagementStoreController extends Controller
 
             return redirect()
                 ->route('product-management.index')
-                ->with('success', 'Product created successfully.');
+                ->with('alert', [
+                    'type' => 'success',
+                    'message' => 'Product created successfully.',
+                ]);
         } catch (\Exception $e) {
             Log::error('Product create failed', [
                 'user_id' => Auth::id(),
@@ -58,7 +61,11 @@ class ProductManagementStoreController extends Controller
             return redirect()
                 ->back()
                 ->withInput()
-                ->with('error', 'Failed to create product: ' . $e->getMessage());
+                ->with('alert', [
+                    'type' => 'error',
+                    'message' => 'Failed to create product.',
+                    'description' => $e->getMessage(),
+                ]);
         }
     }
 }
