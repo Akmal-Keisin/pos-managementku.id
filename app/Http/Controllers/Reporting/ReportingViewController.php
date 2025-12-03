@@ -19,10 +19,19 @@ class ReportingViewController extends Controller
     {
         $query = Transaction::with(['user', 'details.product']);
 
-        // Date filter - defaults to today
-        $date = $request->get('date', now()->format('Y-m-d'));
-        if ($date) {
-            $query->whereDate('created_at', $date);
+        // Date range filter - defaults to today
+        $startDate = $request->get('start_date', now()->format('Y-m-d'));
+        $endDate = $request->get('end_date', now()->format('Y-m-d'));
+
+        if ($startDate && $endDate) {
+            $query->whereBetween('created_at', [
+                $startDate . ' 00:00:00',
+                $endDate . ' 23:59:59'
+            ]);
+        } elseif ($startDate) {
+            $query->whereDate('created_at', '>=', $startDate);
+        } elseif ($endDate) {
+            $query->whereDate('created_at', '<=', $endDate);
         }
 
         // User filter - defaults to current user
@@ -66,7 +75,8 @@ class ReportingViewController extends Controller
             'products' => $products,
             'filters' => [
                 'search' => $request->search,
-                'date' => $date,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
                 'user_id' => $userId,
                 'product_id' => $request->product_id,
             ],

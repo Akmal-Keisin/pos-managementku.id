@@ -73,7 +73,8 @@ interface Props {
     products: Product[];
     filters: {
         search?: string;
-        date?: string;
+        start_date?: string;
+        end_date?: string;
         user_id?: number | string;
         product_id?: number | string;
     };
@@ -87,15 +88,17 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const searchQuery = ref(props.filters.search || '');
-const dateFilter = ref(props.filters.date || '');
+const startDateFilter = ref(props.filters.start_date || '');
+const endDateFilter = ref(props.filters.end_date || '');
 const userFilter = ref(props.filters.user_id?.toString() || '');
 const productFilter = ref(props.filters.product_id?.toString() || '');
 
 const hasActiveFilters = computed(() => {
     return (
         searchQuery.value ||
-        dateFilter.value !== props.filters.date ||
-        userFilter.value !== props.filters.user_id?.toString() ||
+        startDateFilter.value ||
+        endDateFilter.value ||
+        userFilter.value ||
         productFilter.value
     );
 });
@@ -105,7 +108,8 @@ const handleFilter = () => {
         '/reporting',
         {
             search: searchQuery.value || undefined,
-            date: dateFilter.value || undefined,
+            start_date: startDateFilter.value || undefined,
+            end_date: endDateFilter.value || undefined,
             user_id: userFilter.value || undefined,
             product_id: productFilter.value || undefined,
         },
@@ -115,7 +119,8 @@ const handleFilter = () => {
 
 const clearFilters = () => {
     searchQuery.value = '';
-    dateFilter.value = new Date().toISOString().split('T')[0];
+    startDateFilter.value = '';
+    endDateFilter.value = '';
     userFilter.value = '';
     productFilter.value = '';
     router.get('/reporting', {}, { preserveState: false });
@@ -183,18 +188,34 @@ const getItemsCount = (transaction: Transaction) => {
                     </Button>
                 </div>
 
-                <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    <!-- Date Filter -->
+                <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+                    <!-- Start Date Filter -->
                     <div class="space-y-2">
-                        <Label for="date">Date</Label>
+                        <Label for="start_date">Start Date</Label>
                         <div class="relative">
                             <CalendarIcon
                                 class="absolute top-1/2 left-2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
                             />
                             <Input
-                                id="date"
+                                id="start_date"
                                 type="date"
-                                v-model="dateFilter"
+                                v-model="startDateFilter"
+                                class="pl-8"
+                            />
+                        </div>
+                    </div>
+
+                    <!-- End Date Filter -->
+                    <div class="space-y-2">
+                        <Label for="end_date">End Date</Label>
+                        <div class="relative">
+                            <CalendarIcon
+                                class="absolute top-1/2 left-2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                            />
+                            <Input
+                                id="end_date"
+                                type="date"
+                                v-model="endDateFilter"
                                 class="pl-8"
                             />
                         </div>

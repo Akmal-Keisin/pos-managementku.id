@@ -12,51 +12,66 @@ use Inertia\Response;
 
 class StockManagementViewController extends Controller
 {
-	/**
-	 * Display a listing of stock histories.
-	 */
-	public function index(Request $request): Response
-	{
-		$query = StockHistory::with(['product', 'user'])->latest();
+    /**
+     * Display a listing of stock histories.
+     */
+    public function index(Request $request): Response
+    {
+        $query = StockHistory::with(['product', 'user'])->latest();
 
-		// Apply filters
-		if ($request->has('product_id') && $request->product_id) {
-			$query->where('product_id', $request->product_id);
-		}
+        // Date range filter
+        $startDate = $request->get('start_date');
+        $endDate = $request->get('end_date');
 
-		if ($request->has('user_id') && $request->user_id) {
-			$query->where('user_id', $request->user_id);
-		}
+        if ($startDate && $endDate) {
+            $query->whereBetween('created_at', [
+                $startDate . ' 00:00:00',
+                $endDate . ' 23:59:59'
+            ]);
+        } elseif ($startDate) {
+            $query->whereDate('created_at', '>=', $startDate);
+        } elseif ($endDate) {
+            $query->whereDate('created_at', '<=', $endDate);
+        }
 
-		if ($request->has('type') && $request->type) {
-			$query->where('type', $request->type);
-		}
+        // Apply other filters
+        if ($request->has('product_id') && $request->product_id && $request->product_id != 'All Products') {
+            $query->where('product_id', $request->product_id);
+        }
 
-		$stockHistories = $query->paginate(10);
+        if ($request->has('user_id') && $request->user_id && $request->user_id != 'All Users') {
+            $query->where('user_id', $request->user_id);
+        }
 
-		// Get filter options
-		$products = Product::select('id', 'name', 'sku')->get();
-		$users = User::select('id', 'name', 'username')
-			->whereIn('role', ['super-admin', 'admin'])
-			->get();
+        if ($request->has('type') && $request->type && $request->type != 'All Types') {
+            $query->where('type', $request->type);
+        }
 
-		return Inertia::render('stock-management/Index', [
-			'stockHistories' => $stockHistories,
-			'products' => $products,
-			'users' => $users,
-			'filters' => $request->only(['product_id', 'user_id', 'type']),
-		]);
-	}
+        $stockHistories = $query->paginate(10);
 
-	/**
-	 * Show the form for updating stock.
-	 */
-	public function updateStock(): Response
-	{
-		$products = Product::select('id', 'name', 'sku', 'current_stock')->get();
+        // Get filter options
+        $products = Product::select('id', 'name', 'sku')->get();
+        $users = User::select('id', 'name', 'username')
+            ->whereIn('role', ['super-admin', 'admin'])
+            ->get();
 
-		return Inertia::render('stock-management/UpdateStock', [
-			'products' => $products,
-		]);
-	}
+        return Inertia::render('stock-management/Index', [
+            'stockHistories' => $stockHistories,
+            'products' => $products,
+            'users' => $users,
+            'filters' => $request->only(['start_date', 'end_date', 'product_id', 'user_id', 'type']),
+        ]);
+    }
+
+    /**
+     * Show the form for updating stock.
+     */
+    public function updateStock(): Response
+    {
+        $products = Product::select('id', 'name', 'sku', 'current_stock')->get();
+
+        return Inertia::render('stock-management/UpdateStock', [
+            'products' => $products,
+        ]);
+    }
 }
