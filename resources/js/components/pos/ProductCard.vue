@@ -12,9 +12,21 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+} from '@/components/ui/sheet';
 import { router } from '@inertiajs/vue3';
-import { MinusIcon, PackageIcon, PlusIcon, ShoppingCartIcon, TagIcon, TrendingUpIcon } from 'lucide-vue-next';
+import {
+    MinusIcon,
+    PackageIcon,
+    PlusIcon,
+    ShoppingCartIcon,
+    TagIcon,
+    TrendingUpIcon,
+} from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 const props = defineProps<{
@@ -96,7 +108,7 @@ const checkout = async () => {
 </script>
 
 <template>
-    <Card 
+    <Card
         class="group cursor-pointer overflow-hidden transition-all hover:shadow-lg"
         :class="{ 'opacity-60': isOutOfStock }"
         @click="open = true"
@@ -109,27 +121,39 @@ const checkout = async () => {
                     :alt="props.product.name"
                     class="h-full w-full object-cover transition-transform group-hover:scale-105"
                 />
-                
+
                 <!-- Stock Badge -->
-                <div class="absolute right-2 top-2 flex flex-col gap-1">
-                    <Badge v-if="isOutOfStock" variant="destructive" class="shadow-sm">
+                <div class="absolute top-2 right-2 flex flex-col gap-1">
+                    <Badge
+                        v-if="isOutOfStock"
+                        variant="destructive"
+                        class="shadow-sm"
+                    >
                         Out of Stock
                     </Badge>
-                    <Badge v-else-if="isLowStock" variant="secondary" class="bg-yellow-500/90 text-white shadow-sm">
+                    <Badge
+                        v-else-if="isLowStock"
+                        variant="secondary"
+                        class="bg-yellow-500/90 text-white shadow-sm"
+                    >
                         Low Stock
                     </Badge>
                 </div>
             </div>
 
             <!-- Product Info -->
-            <div class="p-3 space-y-2">
+            <div class="space-y-2 p-3">
                 <!-- Product Name -->
-                <h3 class="line-clamp-2 text-sm font-semibold leading-tight min-h-[2.5rem]">
+                <h3
+                    class="line-clamp-2 min-h-[2.5rem] text-sm leading-tight font-semibold"
+                >
                     {{ props.product.name }}
                 </h3>
 
                 <!-- SKU -->
-                <div class="flex items-center gap-1 text-xs text-muted-foreground">
+                <div
+                    class="flex items-center gap-1 text-xs text-muted-foreground"
+                >
                     <TagIcon class="h-3 w-3" />
                     <span class="truncate">{{ props.product.sku }}</span>
                 </div>
@@ -140,10 +164,17 @@ const checkout = async () => {
                 </div>
 
                 <!-- Stats -->
-                <div class="flex items-center justify-between gap-2 pt-1 text-xs">
-                    <div class="flex items-center gap-1" :class="{ 'text-destructive': isLowStock }">
+                <div
+                    class="flex items-center justify-between gap-2 pt-1 text-xs"
+                >
+                    <div
+                        class="flex items-center gap-1"
+                        :class="{ 'text-destructive': isLowStock }"
+                    >
                         <PackageIcon class="h-3 w-3" />
-                        <span class="font-medium">{{ props.product.current_stock ?? 0 }}</span>
+                        <span class="font-medium">{{
+                            props.product.current_stock ?? 0
+                        }}</span>
                     </div>
                     <div class="flex items-center gap-1 text-muted-foreground">
                         <TrendingUpIcon class="h-3 w-3" />
@@ -156,7 +187,9 @@ const checkout = async () => {
         <Sheet v-model:open="open">
             <SheetContent side="right" class="flex w-full flex-col sm:max-w-md">
                 <SheetHeader class="space-y-2 pb-4">
-                    <SheetTitle class="text-left text-xl">{{ props.product.name }}</SheetTitle>
+                    <SheetTitle class="text-left text-xl">{{
+                        props.product.name
+                    }}</SheetTitle>
                     <div class="flex items-center gap-2">
                         <Badge variant="outline" class="text-xs">
                             <TagIcon class="mr-1 h-3 w-3" />
@@ -165,7 +198,11 @@ const checkout = async () => {
                         <Badge v-if="isOutOfStock" variant="destructive">
                             Out of Stock
                         </Badge>
-                        <Badge v-else-if="isLowStock" variant="secondary" class="bg-yellow-500 text-white">
+                        <Badge
+                            v-else-if="isLowStock"
+                            variant="secondary"
+                            class="bg-yellow-500 text-white"
+                        >
                             Low Stock
                         </Badge>
                     </div>
@@ -173,9 +210,14 @@ const checkout = async () => {
 
                 <div class="flex flex-1 flex-col gap-4 overflow-y-auto pb-4">
                     <!-- Product Image -->
-                    <div class="aspect-video w-full overflow-hidden rounded-lg border">
+                    <div
+                        class="aspect-video w-full overflow-hidden rounded-lg border"
+                    >
                         <img
-                            :src="props.product.image_url || '/assets/no-image.png'"
+                            :src="
+                                props.product.image_url ||
+                                '/assets/no-image.png'
+                            "
                             :alt="props.product.name"
                             class="h-full w-full object-cover"
                         />
@@ -184,22 +226,31 @@ const checkout = async () => {
                     <!-- Price -->
                     <div class="rounded-lg border bg-muted/50 p-4">
                         <div class="text-sm text-muted-foreground">Price</div>
-                        <div class="text-2xl font-bold">{{ formattedPrice }}</div>
+                        <div class="text-2xl font-bold">
+                            {{ formattedPrice }}
+                        </div>
                     </div>
 
                     <!-- Stats Grid -->
                     <div class="grid grid-cols-2 gap-3">
                         <div class="rounded-lg border bg-background p-3">
-                            <div class="flex items-center gap-2 text-sm text-muted-foreground">
+                            <div
+                                class="flex items-center gap-2 text-sm text-muted-foreground"
+                            >
                                 <PackageIcon class="h-4 w-4" />
                                 Stock
                             </div>
-                            <div class="mt-1 text-xl font-semibold" :class="{ 'text-destructive': isLowStock }">
+                            <div
+                                class="mt-1 text-xl font-semibold"
+                                :class="{ 'text-destructive': isLowStock }"
+                            >
                                 {{ props.product.current_stock ?? 0 }}
                             </div>
                         </div>
                         <div class="rounded-lg border bg-background p-3">
-                            <div class="flex items-center gap-2 text-sm text-muted-foreground">
+                            <div
+                                class="flex items-center gap-2 text-sm text-muted-foreground"
+                            >
                                 <TrendingUpIcon class="h-4 w-4" />
                                 Sold
                             </div>
@@ -212,8 +263,13 @@ const checkout = async () => {
                     <!-- Description -->
                     <div class="space-y-2">
                         <h4 class="text-sm font-semibold">Description</h4>
-                        <div class="rounded-lg border bg-muted/30 p-3 text-sm leading-relaxed">
-                            {{ props.product.description || 'No description available.' }}
+                        <div
+                            class="rounded-lg border bg-muted/30 p-3 text-sm leading-relaxed"
+                        >
+                            {{
+                                props.product.description ||
+                                'No description available.'
+                            }}
                         </div>
                     </div>
                 </div>
@@ -244,13 +300,18 @@ const checkout = async () => {
                                 size="icon"
                                 variant="outline"
                                 @click="incrementQty"
-                                :disabled="qty >= (props.product.current_stock ?? 0)"
+                                :disabled="
+                                    qty >= (props.product.current_stock ?? 0)
+                                "
                             >
                                 <PlusIcon class="h-4 w-4" />
                             </Button>
                         </div>
-                        <div class="text-sm text-muted-foreground text-center">
-                            Total: <span class="font-semibold text-foreground">{{ totalPrice }}</span>
+                        <div class="text-center text-sm text-muted-foreground">
+                            Total:
+                            <span class="font-semibold text-foreground">{{
+                                totalPrice
+                            }}</span>
                         </div>
                     </div>
 

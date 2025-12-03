@@ -13,7 +13,7 @@ import {
 import { dashboard } from '@/routes';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import { History, LayoutGrid, Package, Users } from 'lucide-vue-next';
+import { FileText, History, LayoutGrid, Package, Users } from 'lucide-vue-next';
 import { computed } from 'vue';
 import NavFooter from './NavFooter.vue';
 import NavMain from './NavMain.vue';
@@ -48,6 +48,12 @@ const navigationConfig = {
         title: 'Stock Management',
         href: '/stock-management',
         icon: History,
+        roles: ['super-admin', 'admin'],
+    },
+    reporting: {
+        title: 'Reporting',
+        href: '/reporting',
+        icon: FileText,
         roles: ['super-admin', 'admin'],
     },
     posTerminal: {

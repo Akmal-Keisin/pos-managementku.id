@@ -10,6 +10,7 @@ use App\Http\Controllers\ProductManagement\ProductManagementUpdateController;
 use App\Http\Controllers\ProductManagement\ProductManagementDeleteController;
 use App\Http\Controllers\StockManagement\StockManagementViewController;
 use App\Http\Controllers\StockManagement\StockManagementUpdateStockController;
+use App\Http\Controllers\Reporting\ReportingViewController;
 use App\Http\Controllers\Pos\PosViewController;
 use App\Http\Controllers\Pos\PosAddToCartController;
 use App\Http\Controllers\Pos\PosCheckoutSingleController;
@@ -72,6 +73,12 @@ Route::prefix('stock-management')->name('stock-management.')->middleware(['auth'
     Route::get('/', [StockManagementViewController::class, 'index'])->name('index');
     Route::get('/update-stock', [StockManagementViewController::class, 'updateStock'])->name('update-stock');
     Route::post('/update-stock', StockManagementUpdateStockController::class)->name('update-stock.store');
+});
+
+// Reporting - accessible by super-admin and admin
+Route::prefix('reporting')->name('reporting.')->middleware(['auth', 'verified', 'role:super-admin,admin'])->group(function () {
+    Route::get('/', [ReportingViewController::class, 'index'])->name('index');
+    Route::get('/{transaction}', [ReportingViewController::class, 'show'])->name('show');
 });
 
 require __DIR__ . '/settings.php';
