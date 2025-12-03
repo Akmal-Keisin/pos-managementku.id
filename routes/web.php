@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\UserManagement\UserManagementViewController;
 use App\Http\Controllers\UserManagement\UserManagementStoreController;
 use App\Http\Controllers\UserManagement\UserManagementUpdateController;
@@ -30,9 +31,9 @@ Route::get('/', function () {
 })->name('home');
 
 // Dashboard - accessible by super-admin and admin
-Route::get('dashboard', function () {
-    return Inertia::render('Dashboard');
-})->middleware(['auth', 'verified', 'role:super-admin,admin'])->name('dashboard');
+Route::get('dashboard', [DashboardController::class, 'index'])
+    ->middleware(['auth', 'verified', 'role:super-admin,admin'])
+    ->name('dashboard');
 
 // POS Terminal - accessible by super-admin, admin, cashier
 Route::prefix('pos-terminal')->name('pos-terminal.')->middleware(['auth', 'verified', 'role:super-admin,admin,cashier'])->group(function () {
