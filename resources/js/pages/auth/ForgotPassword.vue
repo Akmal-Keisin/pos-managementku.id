@@ -18,7 +18,7 @@ defineProps<{
 <template>
     <AuthLayout
         title="Forgot password"
-        description="Enter your email to receive a password reset link"
+        description="Enter your username to receive a password reset link"
     >
         <Head title="Forgot password" />
 
@@ -32,16 +32,16 @@ defineProps<{
         <div class="space-y-6">
             <Form v-bind="email.form()" v-slot="{ errors, processing }">
                 <div class="grid gap-2">
-                    <Label for="email">Email address</Label>
+                    <Label for="username">Username</Label>
                     <Input
-                        id="email"
-                        type="email"
-                        name="email"
+                        id="username"
+                        type="text"
+                        name="username"
                         autocomplete="off"
                         autofocus
-                        placeholder="email@example.com"
+                        placeholder="username"
                     />
-                    <InputError :message="errors.email" />
+                    <InputError :message="errors.username" />
                 </div>
 
                 <div class="my-6 flex items-center justify-start">

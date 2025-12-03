@@ -34,7 +34,7 @@ import { ref } from 'vue';
 interface User {
     id: number;
     name: string;
-    email: string;
+    username: string;
     role: string;
 }
 
@@ -119,7 +119,7 @@ const deleteUser = () => {
                     <TableHeader>
                         <TableRow>
                             <TableHead>Name</TableHead>
-                            <TableHead>Email</TableHead>
+                            <TableHead>Username</TableHead>
                             <TableHead>Role</TableHead>
                             <TableHead class="text-right">Actions</TableHead>
                         </TableRow>
@@ -127,7 +127,7 @@ const deleteUser = () => {
                     <TableBody>
                         <TableRow v-for="user in users.data" :key="user.id">
                             <TableCell>{{ user.name }}</TableCell>
-                            <TableCell>{{ user.email }}</TableCell>
+                            <TableCell>{{ user.username }}</TableCell>
                             <TableCell>{{ user.role }}</TableCell>
                             <TableCell class="text-right">
                                 <DropdownMenu>

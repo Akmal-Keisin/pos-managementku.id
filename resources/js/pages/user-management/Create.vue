@@ -28,7 +28,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const form = useForm({
     name: '',
-    email: '',
+    username: '',
     role: '',
     password: '',
     confirm_password: '',
@@ -75,18 +75,18 @@ const goBack = () => {
                         </div>
 
                         <div class="space-y-2">
-                            <Label for="email">Email</Label>
+                            <Label for="username">Username</Label>
                             <Input
-                                id="email"
-                                v-model="form.email"
-                                type="email"
+                                id="username"
+                                v-model="form.username"
+                                type="text"
                                 required
                             />
                             <p
-                                v-if="form.errors.email"
+                                v-if="form.errors.username"
                                 class="text-sm text-red-600"
                             >
-                                {{ form.errors.email }}
+                                {{ form.errors.username }}
                             </p>
                         </div>
 

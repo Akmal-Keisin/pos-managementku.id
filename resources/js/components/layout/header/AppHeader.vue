@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import AppLogo from '@/components/layout/AppLogo.vue';
+import AppLogoIcon from '@/components/layout/AppLogoIcon.vue';
 import UserMenuContent from '@/components/layout/sidebar/UserMenuContent.vue';
-import Breadcrumbs from '@/components/sidebar/Breadcrumbs.vue';
+import Breadcrumbs from '@/components/navigation/Breadcrumbs.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -34,8 +36,6 @@ import type { BreadcrumbItem, NavItem } from '@/types';
 import { InertiaLinkProps, Link, usePage } from '@inertiajs/vue3';
 import { BookOpen, Folder, LayoutGrid, Menu, Search } from 'lucide-vue-next';
 import { computed } from 'vue';
-import AppLogo from './AppLogo.vue';
-import AppLogoIcon from './AppLogoIcon.vue';
 
 interface Props {
     breadcrumbs?: BreadcrumbItem[];

@@ -42,7 +42,7 @@ class UserManagementStoreRequest extends FormRequest
 
 		return [
 			'name' => ['required', 'string', 'max:255'],
-			'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+			'username' => ['required', 'string', 'max:255', 'unique:users,username'],
 			'role' => ['required', 'string', Rule::in($roleOptions)],
 			'password' => ['required', 'string', 'min:8'],
 			'confirm_password' => ['required', 'string', 'same:password'],

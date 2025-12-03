@@ -44,7 +44,7 @@ class UserManagementUpdateRequest extends FormRequest
 
 		return [
 			'name' => ['required', 'string', 'max:255'],
-			'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($targetUser->id)],
+			'username' => ['required', 'string', 'max:255', Rule::unique('users', 'username')->ignore($targetUser->id)],
 			'role' => ['required', 'string', Rule::in($roleOptions)],
 			'password' => ['nullable', 'string', 'min:8'],
 			'confirm_password' => ['nullable', 'string', 'same:password', 'required_with:password'],

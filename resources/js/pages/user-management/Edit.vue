@@ -17,7 +17,7 @@ import { Head, router, useForm } from '@inertiajs/vue3';
 interface User {
     id: number;
     name: string;
-    email: string;
+    username: string;
     role: string;
 }
 
@@ -36,7 +36,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const form = useForm({
     name: props.user.name,
-    email: props.user.email,
+    username: props.user.username,
     role: props.user.role,
     password: '',
     confirm_password: '',
@@ -83,18 +83,18 @@ const goBack = () => {
                         </div>
 
                         <div class="space-y-2">
-                            <Label for="email">Email</Label>
+                            <Label for="username">Username</Label>
                             <Input
-                                id="email"
-                                v-model="form.email"
-                                type="email"
+                                id="username"
+                                v-model="form.username"
+                                type="text"
                                 required
                             />
                             <p
-                                v-if="form.errors.email"
+                                v-if="form.errors.username"
                                 class="text-sm text-red-600"
                             >
-                                {{ form.errors.email }}
+                                {{ form.errors.username }}
                             </p>
                         </div>
 

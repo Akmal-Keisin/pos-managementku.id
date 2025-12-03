@@ -29,7 +29,7 @@ export type AppPageProps<
 export interface User {
     id: number;
     name: string;
-    email: string;
+    username: string;
     role: 'super-admin' | 'admin' | 'cashier';
     avatar?: string;
     email_verified_at: string | null;

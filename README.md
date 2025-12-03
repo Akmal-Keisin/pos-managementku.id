@@ -10,6 +10,7 @@ A comprehensive Point of Sales management system built with Laravel 12, Inertia.
   - **Admin**: Access to all features except admin management
   - **Cashier**: Access to POS terminal only
   
+- **Username-based authentication** (no email required)
 - Custom login redirect based on user role
 - Secure authentication using Laravel Fortify
 - Two-factor authentication support
@@ -19,7 +20,7 @@ A comprehensive Point of Sales management system built with Laravel 12, Inertia.
 - Role-based user creation (admins can only create cashiers)
 - Search functionality
 - Soft delete implementation with partial unique indexes
-- Email uniqueness validation
+- Username uniqueness validation
 
 ### Product Management
 - Full CRUD operations for products

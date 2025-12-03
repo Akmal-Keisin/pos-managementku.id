@@ -23,60 +23,55 @@ use Inertia\Inertia;
 use Laravel\Fortify\Features;
 
 Route::get('/', function () {
-	return Inertia::render('Welcome', [
-		'canRegister' => Features::enabled(Features::registration()),
-	]);
+    return Inertia::render('Welcome', [
+        'canRegister' => Features::enabled(Features::registration()),
+    ]);
 })->name('home');
 
 // Dashboard - accessible by super-admin and admin
 Route::get('dashboard', function () {
-	return Inertia::render('Dashboard');
+    return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified', 'role:super-admin,admin'])->name('dashboard');
-
-// POS - accessible by cashier
-Route::get('pos', function () {
-	return Inertia::render('Pos');
-})->middleware(['auth', 'verified', 'role:cashier'])->name('pos');
 
 // POS Terminal - accessible by super-admin, admin, cashier
 Route::prefix('pos-terminal')->name('pos-terminal.')->middleware(['auth', 'verified', 'role:super-admin,admin,cashier'])->group(function () {
-	Route::get('/', [PosViewController::class, 'index'])->name('index');
-	Route::post('/add-to-cart', PosAddToCartController::class)->name('add-to-cart');
-	Route::post('/checkout', PosCheckoutSingleController::class)->name('checkout-single');
+    Route::get('/', [PosViewController::class, 'index'])->name('index');
+    Route::post('/add-to-cart', PosAddToCartController::class)->name('add-to-cart');
+    Route::post('/checkout', PosCheckoutSingleController::class)->name('checkout-single');
 
-	// Cart routes
-	Route::get('/{user}/cart', [CartViewController::class, 'show'])->name('cart.show');
-	Route::put('/{user}/cart/{cartItem}', CartUpdateController::class)->name('cart.update');
-	Route::delete('/{user}/cart/{cartItem}', CartDeleteController::class)->name('cart.destroy');
-	Route::post('/{user}/cart/checkout', CartCheckoutController::class)->name('cart.checkout');
-	Route::delete('/{user}/cart/clear', CartClearController::class)->name('cart.clear');
+    // Cart routes
+    Route::get('/{user}/cart', [CartViewController::class, 'show'])->name('cart.show');
+    Route::put('/{user}/cart/{cartItem}', CartUpdateController::class)->name('cart.update');
+    Route::delete('/{user}/cart/{cartItem}', CartDeleteController::class)->name('cart.destroy');
+    Route::post('/{user}/cart/checkout', CartCheckoutController::class)->name('cart.checkout');
+    Route::delete('/{user}/cart/clear', CartClearController::class)->name('cart.clear');
 });
 
 // User Management - accessible by super-admin and admin
 Route::prefix('user-management')->name('user-management.')->middleware(['auth', 'verified', 'role:super-admin,admin'])->group(function () {
-	Route::get('/', [UserManagementViewController::class, 'index'])->name('index');
-	Route::get('/create', [UserManagementViewController::class, 'create'])->name('create');
-	Route::post('/', UserManagementStoreController::class)->name('store');
-	Route::get('/{user}/edit', [UserManagementViewController::class, 'edit'])->name('edit');
-	Route::put('/{user}', UserManagementUpdateController::class)->name('update');
-	Route::delete('/{user}', UserManagementDeleteController::class)->name('destroy');
+    Route::get('/', [UserManagementViewController::class, 'index'])->name('index');
+    Route::get('/create', [UserManagementViewController::class, 'create'])->name('create');
+    Route::post('/', UserManagementStoreController::class)->name('store');
+    Route::get('/{user}/edit', [UserManagementViewController::class, 'edit'])->name('edit');
+    Route::put('/{user}', UserManagementUpdateController::class)->name('update');
+    Route::delete('/{user}', UserManagementDeleteController::class)->name('destroy');
 });
 
 // Product Management - accessible by super-admin and admin
 Route::prefix('product-management')->name('product-management.')->middleware(['auth', 'verified', 'role:super-admin,admin'])->group(function () {
-	Route::get('/', [ProductManagementViewController::class, 'index'])->name('index');
-	Route::get('/create', [ProductManagementViewController::class, 'create'])->name('create');
-	Route::post('/', ProductManagementStoreController::class)->name('store');
-	Route::get('/{product}/edit', [ProductManagementViewController::class, 'edit'])->name('edit');
-	Route::put('/{product}', ProductManagementUpdateController::class)->name('update');
-	Route::delete('/{product}', ProductManagementDeleteController::class)->name('destroy');
+    Route::get('/', [ProductManagementViewController::class, 'index'])->name('index');
+    Route::get('/create', [ProductManagementViewController::class, 'create'])->name('create');
+    Route::post('/', ProductManagementStoreController::class)->name('store');
+    Route::get('/{product}/edit', [ProductManagementViewController::class, 'edit'])->name('edit');
+    Route::put('/{product}', ProductManagementUpdateController::class)->name('update');
+    Route::delete('/{product}', ProductManagementDeleteController::class)->name('destroy');
 });
 
 // Stock Management - accessible by super-admin and admin
 Route::prefix('stock-management')->name('stock-management.')->middleware(['auth', 'verified', 'role:super-admin,admin'])->group(function () {
-	Route::get('/', [StockManagementViewController::class, 'index'])->name('index');
-	Route::get('/update-stock', [StockManagementViewController::class, 'updateStock'])->name('update-stock');
-	Route::post('/update-stock', StockManagementUpdateStockController::class)->name('update-stock.store');
+    Route::get('/', [StockManagementViewController::class, 'index'])->name('index');
+    Route::get('/update-stock', [StockManagementViewController::class, 'updateStock'])->name('update-stock');
+    Route::post('/update-stock', StockManagementUpdateStockController::class)->name('update-stock.store');
 });
 
 require __DIR__ . '/settings.php';

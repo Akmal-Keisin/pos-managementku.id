@@ -36,7 +36,7 @@ class StockManagementViewController extends Controller
 
 		// Get filter options
 		$products = Product::select('id', 'name', 'sku')->get();
-		$users = User::select('id', 'name', 'email')
+		$users = User::select('id', 'name', 'username')
 			->whereIn('role', ['super-admin', 'admin'])
 			->get();
 

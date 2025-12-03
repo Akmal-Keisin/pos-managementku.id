@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import AppLogoIcon from '@/components/layout/AppLogoIcon.vue';
 import { home } from '@/routes';
 import { Link } from '@inertiajs/vue3';
+import { ShoppingCart } from 'lucide-vue-next';
 
 defineProps<{
     title?: string;
@@ -23,8 +23,8 @@ defineProps<{
                         <div
                             class="mb-1 flex h-9 w-9 items-center justify-center rounded-md"
                         >
-                            <AppLogoIcon
-                                class="size-9 fill-current text-[var(--foreground)] dark:text-white"
+                            <ShoppingCart
+                                class="size-9 text-[var(--foreground)] dark:text-white"
                             />
                         </div>
                         <span class="sr-only">{{ title }}</span>

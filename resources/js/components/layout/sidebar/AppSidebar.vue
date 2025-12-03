@@ -52,9 +52,9 @@ const navigationConfig = {
     },
     posTerminal: {
         title: 'POS Terminal',
-        href: '/pos',
+        href: '/pos-terminal',
         icon: LayoutGrid,
-        roles: ['cashier'],
+        roles: ['super-admin', 'admin', 'cashier'],
     },
 } as const;
 
