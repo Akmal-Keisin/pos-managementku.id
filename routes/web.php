@@ -96,6 +96,8 @@ Route::prefix('chatbot')->name('chatbot.')->middleware(['auth', 'verified'])->gr
     Route::delete('/topics/{topic}/clear', ChatbotTopicClearController::class)->name('topics.clear');
     // Messages
     Route::post('/topics/{topic}/messages', ChatbotMessageStoreController::class)->name('messages.store');
+    // Tool endpoint for chatbot to request structured DB data (whitelisted)
+    Route::post('/tool/db', [\App\Http\Controllers\Chatbot\ChatbotToolController::class, '__invoke'])->name('tool.db');
 });
 
 require __DIR__ . '/settings.php';
