@@ -6,378 +6,397 @@ use App\Http\Controllers\Controller;
 use App\Models\ChatTopic;
 use App\Models\ChatMessage;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 use App\Models\Product;
-use App\Services\DBToolService;
 
 class ChatbotMessageStoreController extends Controller
 {
-	/**
-	 * Store a new user message (and a placeholder assistant reply).
-	 */
-	public function __invoke(Request $request, ChatTopic $topic)
-	{
-		// Temporary debug logging to capture AJAX/fetch failures
-		try {
-			Log::debug('ChatbotMessageStoreController::__invoke request', [
-				'user_id' => $request->user()?->id,
-				'topic_id' => $topic->id,
-				'headers' => [
-					'X-Inertia' => $request->header('X-Inertia'),
-					'X-Requested-With' => $request->header('X-Requested-With'),
-					'Accept' => $request->header('Accept'),
-				],
-				'wantsJson' => $request->wantsJson(),
-				'isAjax' => $request->ajax(),
-				'body' => $request->all(),
-			]);
-		} catch (\Throwable $e) {
-			// swallow logging errors
-		}
-		if ($topic->user_id !== $request->user()->id) {
-			abort(403);
-		}
+    public function __invoke(Request $request, ChatTopic $topic)
+    {
+        if ($topic->user_id !== $request->user()->id) abort(403);
 
-		$request->validate([
-			'content' => ['required', 'string'],
-		]);
+        $request->validate(['content' => ['required', 'string']]);
+        $question = strtolower($request->content);
 
-		$userMessage = ChatMessage::create([
-			'chat_topic_id' => $topic->id,
-			'user_id' => $request->user()->id,
-			'role' => 'user',
-			'content' => $request->input('content'),
-		]);
+        // SAVE USER MESSAGE
+        $userMessage = ChatMessage::create([
+            'chat_topic_id' => $topic->id,
+            'user_id' => $request->user()->id,
+            'role' => 'user',
+            'content' => $request->content,
+        ]);
+        $topic->update(['last_message_at' => now()]);
 
-		// Update topic's last_message_at immediately so UI shows activity
-		$topic->update(['last_message_at' => now()]);
+        $trimmed = trim($question);
 
-		$assistantMessage = null;
+        // ============================================================
+        // 0. HANDLE STATE KONFIRMASI / PEMILIHAN PRODUK
+        // ============================================================
+        if ($topic->confirmation_action) {
 
-		// Check DB first for direct answers (stock/price). This avoids calling the LLM
-		// when we can answer from authoritative data.
-		try {
-			$dbTool = new DBToolService();
-			$rows = $dbTool->searchProducts($request->input('content'));
-			$lines = $dbTool->formatProductLines($rows);
-			$this->lastProductData = $lines;
-			$asked = strtolower($request->input('content'));
-			$isStockOrPriceQuery = preg_match('/\b(stok|stock|stoknya|harga|price)\b/i', $asked);
+            // 0.a PEMILIHAN PRODUK UNTUK RESTOCK (user balas angka)
+            if ($topic->confirmation_action === 'choose_restock_product') {
+                $payload = json_decode($topic->confirmation_payload ?? '{}', true) ?: [];
+                $candidates = $payload['candidates'] ?? [];
+                $amount = $payload['amount'] ?? null;
 
-			if ($isStockOrPriceQuery && !empty($lines)) {
-				// Build a deterministic assistant reply from DB rows
-				$assistantLines = array_map(fn($l) => $l, $lines);
-				$assistantContent = "Berikut data produk yang sesuai dengan permintaan Anda:\n" . implode("\n", $assistantLines);
+                // User memilih nomor
+                if (preg_match('/^\d+$/', $trimmed)) {
+                    $index = (int)$trimmed - 1;
+                    if (!isset($candidates[$index])) {
+                        return $this->respond(
+                            $topic,
+                            $userMessage,
+                            "Nomor yang dipilih tidak valid. Silakan pilih angka antara 1 sampai " . count($candidates) . ", atau ketik *batal*."
+                        );
+                    }
 
-				try {
-					$assistantMessage = ChatMessage::create([
-						'chat_topic_id' => $topic->id,
-						'role' => 'assistant',
-						'content' => $assistantContent,
-					]);
-					$topic->update(['last_message_at' => now()]);
-				} catch (\Throwable $e) {
-					Log::error('Failed to save direct DB assistant message: ' . $e->getMessage(), ['topic' => $topic->id]);
-				}
+                    $chosen = $candidates[$index]; // ['id' => ..., 'name' => ...]
+                    $product = Product::find($chosen['id']);
+                    if (!$product) {
+                        // produk sudah hilang dari DB
+                        $topic->update([
+                            'confirmation_action' => null,
+                            'confirmation_payload' => null,
+                        ]);
+                        return $this->respond(
+                            $topic,
+                            $userMessage,
+                            "Produk yang dipilih sudah tidak tersedia di database. Silakan ulangi perintah restock."
+                        );
+                    }
 
-				$responsePayload = [
-					'user_message' => $userMessage,
-					'assistant_message' => $assistantMessage,
-					'topic_id' => $topic->id,
-					'debug_db' => $this->lastProductData ?? [],
-				];
+                    // Pindah ke tahap konfirmasi restock normal (YA/TIDAK)
+                    $topic->update([
+                        'confirmation_action'  => 'restock_product',
+                        'confirmation_payload' => json_encode([
+                            'product_id' => $product->id,
+                            'qty'        => (int)$amount,
+                        ]),
+                    ]);
 
-				try {
-					Log::debug('ChatbotMessageStoreController::direct-db-response', ['topic' => $topic->id, 'rows' => count($rows)]);
-				} catch (\Throwable $e) {}
+                    $text = "Anda memilih produk: {$product->name}.\n\n" .
+                        "Konfirmasi restock berikut:\n" .
+                        "- Produk : {$product->name}\n" .
+                        "- Jumlah : {$amount}\n\n" .
+                        "Balas *YA* untuk melanjutkan atau *TIDAK* untuk membatalkan.";
 
-				return response()->json($responsePayload, 201);
-			}
-		} catch (\Throwable $e) {
-			Log::warning('DBToolService (direct) failed: ' . $e->getMessage(), ['topic' => $topic->id]);
-		}
+                    return $this->respond($topic, $userMessage, $text);
+                }
 
-		// Call the configured model to generate an assistant reply and persist it.
-		try {
-			$assistantContent = $this->generateAssistantResponse($topic, $request->input('content'));
-		} catch (\Throwable $e) {
-			Log::error('AI generation failed: ' . $e->getMessage(), ['topic' => $topic->id]);
-			$assistantContent = "Sorry, I couldn't reach the AI service right now. Please try again later.";
-		}
+                // User membatalkan
+                if (in_array($trimmed, ['batal', 'cancel', 'stop'])) {
+                    $topic->update([
+                        'confirmation_action'  => null,
+                        'confirmation_payload' => null,
+                    ]);
+                    return $this->respond($topic, $userMessage, "Pemilihan produk dibatalkan.");
+                }
 
-		try {
-			$assistantMessage = ChatMessage::create([
-				'chat_topic_id' => $topic->id,
-				'role' => 'assistant',
-				'content' => $assistantContent,
-			]);
+                // Jawaban lain → ingatkan cara memilih
+                return $this->respond(
+                    $topic,
+                    $userMessage,
+                    "Silakan pilih produk dengan membalas angka (misal: 1), atau ketik *batal* untuk membatalkan."
+                );
+            }
 
-			$topic->update(['last_message_at' => now()]);
-		} catch (\Throwable $e) {
-			Log::error('Failed to save assistant message: ' . $e->getMessage(), ['topic' => $topic->id]);
-			// don't throw — user message already persisted
-		}
+            // 0.b KONFIRMASI YA / TIDAK UNTUK AKSI YANG LAIN
+            if (in_array($trimmed, ['ya', 'iya', 'yes', 'y'])) {
+                return $this->handleConfirmedAction($topic, $userMessage);
+            }
 
-		// Log saved message ids so we can verify persistence during debugging
-		try {
-			Log::debug('ChatbotMessageStoreController::saved', [
-				'user_message_id' => $userMessage?->id,
-				'assistant_message_id' => $assistantMessage?->id,
-				'topic_id' => $topic->id,
-			]);
-		} catch (\Throwable $e) {
-			// ignore logging errors
-		}
+            if ($trimmed === ['tidak', 'no', 'n']) {
+                $topic->update([
+                    'confirmation_action'  => null,
+                    'confirmation_payload' => null,
+                ]);
+                return $this->respond($topic, $userMessage, "Aksi dibatalkan.");
+            }
+        }
 
-		$responsePayload = [
-			'user_message' => $userMessage,
-			'assistant_message' => $assistantMessage,
-			'topic_id' => $topic->id,
-			'debug_db' => $this->lastProductData ?? [],
-		];
+        // ============================================================
+        // A. TAMBAH PRODUK — BOT MINTA KONFIRMASI
+        // ============================================================
+        if (
+			preg_match('/tambah.*produk/i', $question) ||
+			preg_match('/add.*product/i', $question) ||
+			preg_match('/create.*product/i', $question)
+		) {
 
-		// Record the outgoing JSON payload and status so we can correlate with client behaviour
-		try {
-			Log::debug('ChatbotMessageStoreController::response', [
-				'payload' => $responsePayload,
-				'status' => 201,
-				'topic' => $topic->id,
-			]);
-		} catch (\Throwable $e) {
-			// ignore logging errors
-		}
+            preg_match('/(?:nama|name)\s+([a-zA-Z0-9 ]+?)(?=\s+(harga|price|stok|stock|deskripsi|description)|$)/i', $question, $name);
+            preg_match('/(?:harga|price)\s+([0-9]+)/i', $question, $price);
+            preg_match('/(?:stok|stock)\s+([0-9]+)/i', $question, $stock);
+            preg_match('/(?:deskripsi|description)\s+(.+)$/i', $question, $desc);
 
-		return response()->json($responsePayload, 201);
+            $payload = [
+                'name'          => $name[1] ?? null,
+                'price'         => $price[1] ?? 0,
+                'current_stock' => $stock[1] ?? 0,
+                'description'   => $desc[1] ?? '',
+            ];
+
+            $topic->update([
+                'confirmation_action'  => 'add_product',
+                'confirmation_payload' => json_encode($payload),
+            ]);
+
+            $text = "Konfirmasi penambahan produk:\n" .
+                "- Nama: {$payload['name']}\n" .
+                "- Harga: {$payload['price']}\n" .
+                "- Stok: {$payload['current_stock']}\n" .
+                "- Deskripsi: {$payload['description']}\n\n" .
+                "Balas *YA* untuk melanjutkan atau *TIDAK* untuk membatalkan.";
+
+            return $this->respond($topic, $userMessage, $text);
+        }
+
+        // ============================================================
+        // B. UPDATE / RESTOCK PRODUK — MINTA PILIHAN + KONFIRMASI
+        // ============================================================
+        if (
+			preg_match('/(restok|restock).*produk/i', $question) ||
+			preg_match('/(restock|update|increase).*stock/i', $question)
+		) {
+            // Ambil jumlah stok
+            preg_match('/(?:stok|stock)\s+(\d+)/i', $question, $stokMatches);
+            $amount = $stokMatches[1] ?? null;
+
+            if (!$amount) {
+                return $this->respond($topic, $userMessage, "Jumlah stok tidak ditemukan. Contoh: `restock produk indomie goreng stok 50`");
+            }
+
+            // Ambil nama produk (hapus angka & kata restok/restock)
+            $productName = preg_replace('/[0-9]+/', '', $question);
+			$productName = str_ireplace(
+				['restok produk', 'restock product', 'update stock', 'increase stock'],
+				'',
+				$productName
+			);
+			$productName = trim($productName);
+
+            // Cari kandidat produk
+            $candidates = $this->findProductCandidates($productName, 5);
+
+            if (empty($candidates)) {
+                return $this->respond($topic, $userMessage, "Produk '{$productName}' tidak ditemukan.");
+            }
+
+            // Hanya 1 kandidat → langsung ke tahap konfirmasi YA/TIDAK
+            if (count($candidates) === 1) {
+                $product = $candidates[0]['product'];
+
+                $topic->update([
+                    'confirmation_action'  => 'restock_product',
+                    'confirmation_payload' => json_encode([
+                        'product_id' => $product->id,
+                        'qty'        => (int)$amount,
+                    ]),
+                ]);
+
+                $text = "Konfirmasi restock stok:\n" .
+                    "- Produk: {$product->name}\n" .
+                    "- Jumlah: {$amount}\n\n" .
+                    "Balas *YA* untuk melanjutkan atau *TIDAK* untuk membatalkan.";
+
+                return $this->respond($topic, $userMessage, $text);
+            }
+
+            // > 1 kandidat → minta user pilih nomor
+            $listText = collect($candidates)->map(function ($c, $idx) {
+				$p = $c['product'];
+				$no = $idx + 1;
+				return "[{$no}] {$p->name}" .
+					(isset($p->price) ? " — Harga: {$p->price}" : "") .
+					(isset($p->current_stock) ? " — Stok: {$p->current_stock}" : "");
+			})->implode("\n");
 
 
-		// Fallback: normal redirect for browser form submissions
-		return redirect()->route('chatbot.index', ['topic' => $topic->id]);
-	}
+            $topic->update([
+                'confirmation_action'  => 'choose_restock_product',
+                'confirmation_payload' => json_encode([
+                    'amount'     => (int)$amount,
+                    'candidates' => array_map(function ($c) {
+                        return [
+                            'id'   => $c['product']->id,
+                            'name' => $c['product']->name,
+                        ];
+                    }, $candidates),
+                ]),
+            ]);
 
-	/**
-	 * Generate assistant response by calling Gemini (Google Generative Language API).
-	 * This method always calls the Generative API and expects the model configured
-	 * in `config('services.gemini.model')` to be accessible.
-	 */
-	private function generateAssistantResponse(ChatTopic $topic, string $newUserContent): string
-	{
-		// Use DBToolService to fetch structured product data when user asks about stock/product
-		try {
-			$dbTool = new DBToolService();
-			$rows = $dbTool->searchProducts($newUserContent);
-			$productDataLines = $dbTool->formatProductLines($rows);
-			$this->lastProductData = $productDataLines;
-		} catch (\Throwable $e) {
-			Log::warning('DBToolService failed: ' . $e->getMessage(), ['topic' => $topic->id]);
-			$productDataLines = [];
-		}
-		$apiKey = config('services.gemini.key');
-		$model = config('services.gemini.model');
+            $text = "Ditemukan beberapa produk yang mirip dengan '{$productName}':\n\n" .
+                $listText . "\n\n" .
+                "Balas dengan angka (misal: *1*) untuk memilih produk, atau ketik *batal* untuk membatalkan.";
 
-		// Prepare history retrieval helper. Prepend DB data as a clear SYSTEM block so
-		// the model can use live values for factual answers.
-		$getHistory = function (int $limit) use ($topic, $newUserContent) {
-			$history = ChatMessage::where('chat_topic_id', $topic->id)
-				->orderBy('created_at', 'asc')
-				->take($limit)
-				->get(['role', 'content'])
-				->map(fn ($m) => strtoupper($m->role) . ": " . $m->content)
-				->toArray();
+            return $this->respond($topic, $userMessage, $text);
+        }
 
-			// Build parts: start with SYSTEM DB lines if available, then conversation history
-			$parts = [];
-			if (!empty($this->lastProductData ?? [])) {
-				// Provide an explicit authoritative instruction so the model uses DB values.
-				$parts[] = "SYSTEM: THE FOLLOWING INVENTORY DATA IS AUTHORITATIVE AND COMES DIRECTLY FROM THE STORE DATABASE.\nUse these values when answering; do not invent or claim lack of access.\n" . implode("\n", $this->lastProductData);
-			}
+        // ============================================================
+        // Z. Query lain → teruskan ke Gemini
+        // ============================================================
+        try {
+            $assistant = $this->askGemini($topic, $request->content);
+        } catch (\Throwable $e) {
+            $assistant = "Maaf, layanan AI sedang tidak bisa dihubungi.";
+        }
 
-			$parts[] = "USER: " . $newUserContent;
-			$parts = array_merge($parts, $history);
+        return $this->respond($topic, $userMessage, $assistant);
+    }
 
-			return implode("\n\n", $parts);
-		};
+    // =====================================================================
+    // HANDLE KONFIRMASI YA
+    // =====================================================================
+    private function handleConfirmedAction(ChatTopic $topic, ChatMessage $userMessage)
+    {
+        $action  = $topic->confirmation_action;
+        $payload = json_decode($topic->confirmation_payload ?? '{}', true) ?: [];
 
-		$url = "https://generativelanguage.googleapis.com/v1/models/{$model}:generateContent?key={$apiKey}";
+        if ($action === 'add_product') {
+            Product::create($payload);
+            $topic->update([
+                'confirmation_action'  => null,
+                'confirmation_payload' => null,
+            ]);
 
-		// Attempts: first normal, second larger max tokens, third trimmed history and low temperature
-		$attempts = [
-			[ 'temperature' => 0.2, 'maxOutputTokens' => 512, 'historyLimit' => 20 ],
-			[ 'temperature' => 0.2, 'maxOutputTokens' => 1024, 'historyLimit' => 20 ],
-			[ 'temperature' => 0.0, 'maxOutputTokens' => 512, 'historyLimit' => 6 ],
-		];
+            return $this->respond($topic, $userMessage, "Produk berhasil ditambahkan!");
+        }
 
-		foreach ($attempts as $i => $cfg) {
-			$attemptNum = $i + 1;
-			$prompt = $getHistory((int) $cfg['historyLimit']);
+        if ($action === 'restock_product') {
+            $product = Product::find($payload['product_id'] ?? null);
 
-			try {
-				$resp = Http::withHeaders([
-					'Content-Type' => 'application/json',
-				])->post($url, [
-					'contents' => [
-						[
-							'parts' => [
-								['text' => $prompt]
-							]
-						]
-					],
-					'generationConfig' => [
-						'temperature' => $cfg['temperature'],
-						'maxOutputTokens' => $cfg['maxOutputTokens'],
-					],
-				]);
-			} catch (\Throwable $e) {
-				Log::warning('Gemini HTTP request failed on attempt ' . $attemptNum, ['message' => $e->getMessage(), 'topic' => $topic->id]);
-				$resp = null;
-			}
+            if (!$product) {
+                $topic->update([
+                    'confirmation_action'  => null,
+                    'confirmation_payload' => null,
+                ]);
+                return $this->respond($topic, $userMessage, "Produk tidak ditemukan saat proses restock. Silakan ulangi.");
+            }
 
-			if (!$resp || !$resp->successful()) {
-				$bodyText = $resp ? $resp->body() : '[no response]';
-				Log::warning('Gemini API non-success', ['attempt' => $attemptNum, 'status' => $resp?->status(), 'body' => $bodyText, 'topic' => $topic->id]);
-				// try next attempt
-				continue;
-			}
+            $qty = (int)($payload['qty'] ?? 0);
+            $product->current_stock += $qty;
+            $product->save();
 
-			$body = $resp->json();
-			$extracted = $this->extractTextFromGeminiBody($body);
+            $topic->update([
+                'confirmation_action'  => null,
+                'confirmation_payload' => null,
+            ]);
 
-			if ($extracted !== null && trim($extracted) !== '') {
-				Log::debug('Gemini API success', ['attempt' => $attemptNum, 'topic' => $topic->id]);
-				return $extracted;
-			}
+            return $this->respond(
+                $topic,
+                $userMessage,
+                "Stok untuk produk '{$product->name}' berhasil ditambah sebesar {$qty}."
+            );
+        }
 
-			// Log response for analysis and continue retrying
-			Log::debug('Gemini response (unable to extract text)', ['attempt' => $attemptNum, 'body' => $body, 'topic' => $topic->id]);
-			// continue loop to retry with adjusted config
-		}
+        return $this->respond($topic, $userMessage, "Aksi tidak dikenali.");
+    }
 
-		// After attempts exhausted, return friendly fallback
-		Log::error('Gemini attempts exhausted without usable text', ['topic' => $topic->id]);
-		return "(AI tidak mengembalikan teks yang bisa dibaca — coba lagi.)";
-	}
+    // =====================================================================
+    // Gemini API
+    // =====================================================================
+    private function askGemini(ChatTopic $topic, string $userText): string
+    {
+        $apiKey = config('services.gemini.key');
+        $model  = config('services.gemini.model');
 
-	/**
-	 * Attempt to extract human-readable text from various Gemini response shapes.
-	 * Returns first non-empty string found or null when nothing usable is present.
-	 */
-	private function extractTextFromGeminiBody(array $body): ?string
-	{
-		// 1) candidates[].content.parts[].text
-		if (!empty($body['candidates']) && is_array($body['candidates'])) {
-			foreach ($body['candidates'] as $cand) {
-				if (!empty($cand['content'])) {
-					// content may be string or array with parts
-					if (is_string($cand['content']) && trim($cand['content']) !== '') {
-						return $cand['content'];
-					}
-					if (isset($cand['content']['parts']) && is_array($cand['content']['parts'])) {
-						foreach ($cand['content']['parts'] as $part) {
-							if (is_string($part['text'] ?? '') && trim($part['text']) !== '') {
-								return $part['text'];
-							}
-						}
-					}
-				}
-			}
-		}
+        $history = ChatMessage::where('chat_topic_id', $topic->id)
+            ->orderBy('created_at')
+            ->limit(15)
+            ->get(['role', 'content'])
+            ->map(fn ($m) => strtoupper($m->role) . ": " . $m->content)
+            ->implode("\n\n");
 
-		// 2) output[].content[].text (some responses use output key)
-		if (!empty($body['output']) && is_array($body['output'])) {
-			foreach ($body['output'] as $out) {
-				if (!empty($out['content']) && is_array($out['content'])) {
-					foreach ($out['content'] as $content) {
-						if (is_string($content['text'] ?? '') && trim($content['text']) !== '') {
-							return $content['text'];
-						}
-						// some content items may have nested parts
-						if (isset($content['parts']) && is_array($content['parts'])) {
-							foreach ($content['parts'] as $p) {
-								if (is_string($p['text'] ?? '') && trim($p['text']) !== '') {
-									return $p['text'];
-								}
-							}
-						}
-					}
-				}
-			}
-		}
+        $prompt = $history . "\n\nUSER: " . $userText;
 
-		// 3) shallow scan: find first 'text' key anywhere in arrays
-		$stack = [$body];
-		while (!empty($stack)) {
-			$node = array_pop($stack);
-			if (is_array($node)) {
-				foreach ($node as $k => $v) {
-					if ($k === 'text' && is_string($v) && trim($v) !== '') {
-						return $v;
-					}
-					if (is_array($v)) $stack[] = $v;
-				}
-			}
-		}
+        $resp = Http::post(
+            "https://generativelanguage.googleapis.com/v1/models/{$model}:generateContent?key={$apiKey}",
+            [
+                'contents' => [
+                    [
+                        'parts' => [
+                            ['text' => $prompt],
+                        ],
+                    ],
+                ],
+            ]
+        );
 
-		return null;
-	}
+        return $resp->json()['candidates'][0]['content']['parts'][0]['text']
+            ?? "(Tidak ada respon dari AI)";
+    }
 
-	/**
-	 * Search `products` for names/sku referenced in the user's content and return
-	 * an array of short human-readable lines describing each matching product.
-	 * This is intentionally simple (fuzzy LIKE search on words) to keep runtime low.
-	 */
-	private function fetchProductData(string $content): array
-	{
-		$this->lastProductData = [];
-		if (!is_string($content) || trim($content) === '') return [];
+    // =====================================================================
+    // Response JSON
+    // =====================================================================
+    private function respond($topic, $userMessage, string $assistantContent)
+    {
+        $assistantMessage = ChatMessage::create([
+            'chat_topic_id' => $topic->id,
+            'role'          => 'assistant',
+            'content'       => $assistantContent,
+        ]);
 
-		// Quick heuristic: only attempt when user mentions 'stok' or 'stock' or 'produk' keywords
-		if (!preg_match('/\\b(stok|stock|produk|product|available|tersedia)\\b/i', $content)) {
-			return [];
-		}
+        return response()->json([
+            'user_message'      => $userMessage,
+            'assistant_message' => $assistantMessage,
+            'topic_id'          => $topic->id,
+        ], 201);
+    }
 
-		$words = preg_split('/[^\\p{L}\\p{N}]+/u', mb_strtolower($content));
-		$terms = array_values(array_filter(array_map('trim', $words), fn($w) => strlen($w) >= 3));
-		if (empty($terms)) return [];
+    // =====================================================================
+    // Cari kandidat produk berdasarkan nama (fuzzy, pakai skor)
+    // =====================================================================
+    private function findProductCandidates(string $input, int $max = 5): array
+    {
+        $input = strtolower(trim($input));
 
-		// Build a query matching any of the term fragments against name or sku
-		$query = Product::query();
-		$query->where(function ($q) use ($terms) {
-			foreach ($terms as $t) {
-				$q->orWhere('name', 'like', "%{$t}%")->orWhere('sku', 'like', "%{$t}%");
-			}
-		});
+        $products = Product::all();
+        if ($products->isEmpty()) {
+            return [];
+        }
 
-		$found = $query->limit(10)->get()->toArray();
+        // Normalisasi input → ambil kata-kata penting
+        $normalized = preg_replace('/[^a-z0-9 ]/i', ' ', $input);
+        $words      = array_filter(explode(' ', $normalized));
+        $words      = array_filter($words, fn ($w) => strlen($w) >= 3);
 
-		$lines = [];
-		foreach ($found as $p) {
-			$name = $p['name'] ?? ($p['title'] ?? 'Unknown');
-			$sku = $p['sku'] ?? null;
-			$stock = $p['current_stock'] ?? $p['stock'] ?? ($p['quantity'] ?? null);
-			// fallback: if no current_stock, try summing stock history as a best-effort
-			if ($stock === null) {
-				try {
-					$histSum = \App\Models\StockHistory::where('product_id', $p['id'])->sum('quantity');
-					$stock = $histSum;
-				} catch (\Throwable $e) {
-					$stock = null;
-				}
-			}
-			$price = $p['price'] ?? null;
-			$line = "Product: {$name}";
-			if ($sku) $line .= " (SKU: {$sku})";
-			if ($stock !== null) $line .= ", Stock: {$stock}";
-			if ($price !== null) $line .= ", Price: {$price}";
-			$lines[] = $line;
-		}
+        if (empty($words)) {
+            return [];
+        }
 
-		$this->lastProductData = $lines;
-		if (!empty($lines)) {
-			Log::debug('fetchProductData matched products', ['lines' => $lines]);
-		}
-		return $lines;
-	}
+        $candidates = [];
 
+        foreach ($products as $p) {
+            $name  = strtolower($p->name);
+            $score = 0;
+
+            foreach ($words as $w) {
+                if (str_contains($name, $w)) {
+                    $score++;
+                }
+            }
+
+            if ($score > 0) {
+                $candidates[] = [
+                    'product' => $p,
+                    'score'   => $score,
+                ];
+            }
+        }
+
+        if (empty($candidates)) {
+            return [];
+        }
+
+        // Urutkan dari skor tertinggi
+        usort($candidates, function ($a, $b) {
+            if ($a['score'] === $b['score']) {
+                return strcmp($a['product']->name, $b['product']->name);
+            }
+            return $b['score'] <=> $a['score'];
+        });
+
+        return array_slice($candidates, 0, $max);
+    }
 }
