@@ -28,6 +28,7 @@ interface Message {
     role: 'user' | 'assistant';
     content: string;
     created_at: string;
+    pending?: boolean;
 }
 
 interface Props {
@@ -51,13 +52,15 @@ const lastCopiedId = ref<number | null>(null);
 const sidebarOpen = ref(false);
 
 const autoResize = () => {
-    const el = textareaRef.value;
-    if (!el) return;
+    // textareaRef may point to the component instance or the native textarea element.
+    const comp = textareaRef.value as any;
+    if (!comp) return;
+    const el: HTMLTextAreaElement | null = comp.$el ?? comp;
+    if (!el || !el.style) return;
     el.style.height = 'auto';
     const next = Math.min(el.scrollHeight, maxTextareaHeight);
     el.style.height = `${next}px`;
-    el.style.overflowY =
-        el.scrollHeight > maxTextareaHeight ? 'auto' : 'hidden';
+    el.style.overflowY = el.scrollHeight > maxTextareaHeight ? 'auto' : 'hidden';
 };
 
 const scrollToBottom = () => {
@@ -80,23 +83,156 @@ const copyMessage = async (m: Message) => {
     } catch {}
 };
 
-const sendMessage = () => {
-    if (!messageInput.value.trim()) return;
-    router.post(
-        `/chatbot/topics/${props.selectedTopic.id}/messages`,
-        {
-            content: messageInput.value,
-        },
-        {
-            preserveScroll: true,
-            preserveState: true,
-            onSuccess: () => {
-                messageInput.value = '';
-                autoResize();
-                nextTick(scrollToBottom);
+// Local reactive messages so we can append without reloading the page
+const messages = ref<Message[]>([...props.messages]);
+
+// Keep local messages in sync when server props change (e.g., switching topics)
+watch(
+    () => props.messages,
+    (next) => {
+        messages.value = [...next];
+    },
+    { deep: true },
+);
+
+const sendMessage = async () => {
+    // Ensure we read the most up-to-date value: prefer `messageInput`, fallback to DOM textarea value
+    let domVal = '';
+    const comp = textareaRef.value as any;
+    const el: HTMLTextAreaElement | null = comp? (comp.$el ?? comp) : null;
+    if (el && typeof el.value === 'string') domVal = el.value;
+    const content = (messageInput.value || domVal || '').toString();
+    if (!content.trim()) return;
+
+    const url = `/chatbot/topics/${props.selectedTopic.id}/messages`;
+    const csrf = document
+        .querySelector('meta[name="csrf-token"]')
+        ?.getAttribute('content');
+
+    const payload = { content };
+
+    console.debug('sendMessage -> content', content);
+
+    // Optimistic UI: push user message and assistant placeholder immediately
+    const tempUserId = Date.now();
+    const tempAssistantId = Date.now() + 1;
+    const nowIso = new Date().toISOString();
+
+    const tempUser: Message = {
+        id: tempUserId,
+        role: 'user',
+        content: content,
+        created_at: nowIso,
+    };
+
+    const tempAssistant: Message = {
+        id: tempAssistantId,
+        role: 'assistant',
+        content: '',
+        pending: true,
+        created_at: nowIso,
+    };
+
+    messages.value.push(tempUser);
+    messages.value.push(tempAssistant);
+
+    // Clear input locally right away
+    messageInput.value = '';
+    autoResize();
+    await nextTick();
+    scrollToBottom();
+
+    try {
+        console.debug('POST', url, payload);
+        const res = await fetch(url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
             },
-        },
-    );
+            body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+            // Non-OK (status 4xx/5xx). Log response body for diagnosis and show local error message.
+            const text = await res.text().catch(() => '[unable to read body]');
+            console.error('AJAX non-ok response', res.status, text);
+            // remove assistant placeholder
+            messages.value = messages.value.filter((m) => m.id !== tempAssistantId);
+            // show local assistant error message
+            messages.value.push({
+                id: Date.now() + 3,
+                role: 'assistant',
+                content: 'Terjadi kesalahan saat menghubungi server. Coba lagi.',
+                created_at: new Date().toISOString(),
+            });
+            return;
+        }
+
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            const text = await res.text().catch(() => '[unable to read body]');
+            console.error('AJAX non-json response', text);
+            messages.value = messages.value.filter((m) => m.id !== tempAssistantId);
+            messages.value.push({
+                id: Date.now() + 4,
+                role: 'assistant',
+                content: 'Server mengembalikan respons yang tidak terduga. Coba lagi.',
+                created_at: new Date().toISOString(),
+            });
+            return;
+        }
+
+        const data = await res.json();
+
+        // Build normalized Message objects from server response to avoid rendering raw JSON
+        const serverUser = data.user_message
+            ? ({
+                  id: data.user_message.id,
+                  role: data.user_message.role ?? 'user',
+                  content: data.user_message.content ?? String(data.user_message),
+                  created_at: data.user_message.created_at ?? new Date().toISOString(),
+              } as Message)
+            : null;
+
+        const serverAssistant = data.assistant_message
+            ? ({
+                  id: data.assistant_message.id,
+                  role: data.assistant_message.role ?? 'assistant',
+                  content: data.assistant_message.content ?? String(data.assistant_message),
+                  created_at:
+                      data.assistant_message.created_at ?? new Date().toISOString(),
+              } as Message)
+            : null;
+
+        // Replace temp user message with server user_message (if returned)
+        if (serverUser) {
+            const idx = messages.value.findIndex((m) => m.id === tempUserId);
+            if (idx !== -1) messages.value.splice(idx, 1, serverUser);
+        }
+
+        // Replace temp assistant placeholder with actual assistant_message
+        const aidx = messages.value.findIndex((m) => m.id === tempAssistantId);
+        if (serverAssistant) {
+            if (aidx !== -1) messages.value.splice(aidx, 1, serverAssistant);
+            else messages.value.push(serverAssistant);
+        } else {
+            // if assistant missing, remove placeholder
+            if (aidx !== -1) messages.value.splice(aidx, 1);
+        }
+
+        await nextTick();
+        scrollToBottom();
+    } catch (e) {
+        // On error, remove placeholder and fallback to Inertia submission
+        console.error('sendMessage error', e);
+        messages.value = messages.value.filter((m) => m.id !== tempAssistantId);
+        console.error("AJAX error", e);
+        return;
+    }
 };
 
 const createTopic = () => {
@@ -133,7 +269,7 @@ onMounted(() => {
 });
 
 watch(
-    () => props.messages.length,
+    () => messages.value.length,
     async () => {
         await nextTick();
         scrollToBottom();
@@ -262,7 +398,7 @@ watch(
                     class="flex-1 space-y-6 overflow-y-auto p-6"
                 >
                     <div
-                        v-if="props.messages.length === 0"
+                                        v-if="messages.length === 0"
                         class="flex h-full flex-col items-center justify-center gap-4 text-center"
                     >
                         <div class="rounded-full bg-primary/10 p-6">
@@ -278,7 +414,7 @@ watch(
                         </div>
                     </div>
                     <div
-                        v-for="m in props.messages"
+                        v-for="m in messages"
                         :key="m.id"
                         class="flex w-full animate-in fade-in slide-in-from-bottom-2"
                         :class="
@@ -349,7 +485,36 @@ watch(
                                             : '[&_*]:text-primary-foreground'
                                     "
                                 >
-                                    <MarkdownRenderer :content="m.content" />
+                                    <template v-if="m.pending">
+                                        <div class="flex items-center gap-3">
+                                            <svg
+                                                class="h-5 w-5 animate-spin text-primary"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                xmlns="http://www.w3.org/2000/svg"
+                                            >
+                                                <circle
+                                                    class="opacity-25"
+                                                    cx="12"
+                                                    cy="12"
+                                                    r="10"
+                                                    stroke="currentColor"
+                                                    stroke-width="4"
+                                                />
+                                                <path
+                                                    class="opacity-75"
+                                                    fill="currentColor"
+                                                    d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                                                />
+                                            </svg>
+                                            <span class="text-sm text-muted-foreground">
+                                                Sedang mengetik...
+                                            </span>
+                                        </div>
+                                    </template>
+                                    <template v-else>
+                                        <MarkdownRenderer :content="m.content" />
+                                    </template>
                                 </div>
                             </div>
                         </div>
@@ -368,7 +533,7 @@ watch(
                                     class="max-h-60 min-h-[52px] resize-none rounded-xl border-2 focus-visible:ring-0 focus-visible:ring-offset-0"
                                     @input="autoResize"
                                     @focus="autoResize"
-                                    @keydown.enter.exact.prevent="sendMessage"
+                                    @keyup.enter.exact.prevent="sendMessage"
                                 />
                             </div>
                             <Button

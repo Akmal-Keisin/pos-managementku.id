@@ -16,6 +16,8 @@ class ChatTopic extends Model
 		'user_id',
 		'title',
 		'last_message_at',
+		'confirmation_action',
+    	'confirmation_payload',
 	];
 
 	protected $casts = [
