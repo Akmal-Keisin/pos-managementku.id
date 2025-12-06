@@ -89,7 +89,7 @@ Route::prefix('reporting')->name('reporting.')->middleware(['auth', 'verified', 
 });
 
 // Chatbot - accessible by all authenticated and verified users
-Route::prefix('chatbot')->name('chatbot.')->middleware(['auth', 'verified'])->group(function () {
+Route::prefix('chatbot')->name('chatbot.')->middleware(['auth', 'verified', 'role:super-admin,admin'])->group(function () {
     Route::get('/', [ChatbotViewController::class, 'index'])->name('index');
 
     // Topics

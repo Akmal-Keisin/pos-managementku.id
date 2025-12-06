@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ChatbotCapabilitiesDialog from '@/components/chatbot/ChatbotCapabilitiesDialog.vue';
 import MarkdownRenderer from '@/components/markdown/MarkdownRenderer.vue';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -50,6 +51,7 @@ const messagesContainerRef = ref<HTMLDivElement | null>(null);
 const maxTextareaHeight = 240; // px ~12 lines
 const lastCopiedId = ref<number | null>(null);
 const sidebarOpen = ref(false);
+const capabilitiesDialogOpen = ref(false);
 
 const autoResize = () => {
     // textareaRef may point to the component instance or the native textarea element.
@@ -433,6 +435,10 @@ watch(
                         </div>
                     </div>
                     <div class="flex gap-2">
+                        <ChatbotCapabilitiesDialog
+                            :open="capabilitiesDialogOpen"
+                            @update:open="capabilitiesDialogOpen = $event"
+                        />
                         <Button variant="ghost" size="sm" @click="clearTopic">
                             <RotateCcw class="mr-1.5 h-4 w-4" /> Clear
                         </Button>

@@ -18,6 +18,9 @@ class ChatbotMessageService
     private ProductMatchingService $productService;
     private ConfirmationService $confirmationService;
     private GeminiAIService $geminiService;
+    private ReportingQueryService $reportingService;
+    private StockAnalysisService $stockAnalysisService;
+    private ResponseFormatterService $responseFormatter;
 
     /**
      * Initialize service with dependencies
@@ -26,12 +29,18 @@ class ChatbotMessageService
         IntentParsingService $intentService,
         ProductMatchingService $productService,
         ConfirmationService $confirmationService,
-        GeminiAIService $geminiService
+        GeminiAIService $geminiService,
+        ReportingQueryService $reportingService,
+        StockAnalysisService $stockAnalysisService,
+        ResponseFormatterService $responseFormatter
     ) {
         $this->intentService = $intentService;
         $this->productService = $productService;
         $this->confirmationService = $confirmationService;
         $this->geminiService = $geminiService;
+        $this->reportingService = $reportingService;
+        $this->stockAnalysisService = $stockAnalysisService;
+        $this->responseFormatter = $responseFormatter;
     }
 
     /**
@@ -62,12 +71,28 @@ class ChatbotMessageService
             }
         }
 
-        // Check for intent: Add Product
+        // Check for query intents first (READ operations - no state needed)
+        if ($this->intentService->isLowStockQuery($userContent)) {
+            return $this->handleLowStockQuery($topic, $userContent);
+        }
+
+        if ($this->intentService->isSalesQuery($userContent)) {
+            return $this->handleSalesQuery($topic, $userContent);
+        }
+
+        if ($this->intentService->isBestSellerQuery($userContent)) {
+            return $this->handleBestSellerQuery($topic, $userContent);
+        }
+
+        if ($this->intentService->isCashierPerformanceQuery($userContent)) {
+            return $this->handleCashierPerformanceQuery($topic, $userContent);
+        }
+
+        // Check for mutation intents (WRITE operations - confirmation needed)
         if ($this->intentService->isAddProductIntent($userContent)) {
             return $this->handleAddProductIntent($topic, $userContent);
         }
 
-        // Check for intent: Restock Product
         if ($this->intentService->isRestockProductIntent($userContent)) {
             return $this->handleRestockIntent($topic, $userContent);
         }
@@ -305,6 +330,179 @@ class ChatbotMessageService
         return "Ditemukan beberapa produk yang mirip dengan '{$productName}':\n\n" .
             $listText . "\n\n" .
             "Balas dengan angka (misal: *1*) untuk memilih produk, atau ketik *batal* untuk membatalkan.";
+    }
+
+    /**
+     * Handle low stock query
+     *
+     * @param ChatTopic $topic The chat topic
+     * @param string $userContent User's message
+     * @return string Response text
+     */
+    private function handleLowStockQuery(ChatTopic $topic, string $userContent): string
+    {
+        if (!app()->environment('production')) {
+            Log::info('ChatbotMessageService: Handling low stock query', ['topic_id' => $topic->id]);
+        }
+
+        try {
+            $products = $this->reportingService->getLowStockProducts(10, 10);
+            return $this->reportingService->formatLowStockReport($products);
+        } catch (\Throwable $exception) {
+            if (!app()->environment('production')) {
+                Log::error('ChatbotMessageService: Low stock query failed', [
+                    'error' => $exception->getMessage(),
+                    'exception' => get_class($exception),
+                ]);
+            }
+            return "Maaf, gagal mengambil data stok rendah. Silakan coba lagi.";
+        }
+    }
+
+    /**
+     * Handle sales/revenue query
+     *
+     * @param ChatTopic $topic The chat topic
+     * @param string $userContent User's message
+     * @return string Response text
+     */
+    private function handleSalesQuery(ChatTopic $topic, string $userContent): string
+    {
+        if (!app()->environment('production')) {
+            Log::info('ChatbotMessageService: Handling sales query', ['topic_id' => $topic->id]);
+        }
+
+        try {
+            $dateParam = $this->intentService->extractDateParam($userContent);
+
+            if ($dateParam === 'week') {
+                $data = $this->reportingService->getWeeklySalesBreakdown();
+                $message = "📊 *Ringkasan Penjualan Minggu Ini*\n\n";
+                foreach ($data as $day) {
+                    $message .= sprintf(
+                        "%s: Rp%s (%d transaksi)\n",
+                        $day['date'],
+                        number_format($day['total_amount'], 0, ',', '.'),
+                        $day['transaction_count']
+                    );
+                }
+                return $message;
+            } elseif ($dateParam === 'month') {
+                $data = $this->reportingService->getMonthlyRevenue();
+                return sprintf(
+                    "💰 *Laporan Penjualan Bulan Ini*\n\n" .
+                        "Total Penjualan: Rp%s\n" .
+                        "Total Transaksi: %d\n" .
+                        "Rata-rata per Transaksi: Rp%s",
+                    number_format($data['total_revenue'], 0, ',', '.'),
+                    $data['transaction_count'],
+                    number_format($data['average_transaction'], 0, ',', '.')
+                );
+            } else {
+                // Default: today
+                $data = $this->reportingService->getDailySalesAmount();
+                return $this->reportingService->formatSalesReport($data);
+            }
+        } catch (\Throwable $exception) {
+            if (!app()->environment('production')) {
+                Log::error('ChatbotMessageService: Sales query failed', [
+                    'error' => $exception->getMessage(),
+                    'exception' => get_class($exception),
+                ]);
+            }
+            return "Maaf, gagal mengambil data penjualan. Silakan coba lagi.";
+        }
+    }
+
+    /**
+     * Handle best seller query
+     *
+     * @param ChatTopic $topic The chat topic
+     * @param string $userContent User's message
+     * @return string Response text
+     */
+    private function handleBestSellerQuery(ChatTopic $topic, string $userContent): string
+    {
+        if (!app()->environment('production')) {
+            Log::info('ChatbotMessageService: Handling best seller query', ['topic_id' => $topic->id]);
+        }
+
+        try {
+            $products = $this->reportingService->getBestSellingProducts(30, 10);
+
+            if (empty($products)) {
+                return "Tidak ada data produk terlaris ditemukan.";
+            }
+
+            $message = "🏆 *Produk Terlaris (30 Hari Terakhir)*\n\n";
+
+            foreach ($products as $idx => $product) {
+                $message .= sprintf(
+                    "%d. %s\n" .
+                        "   Terjual: %d unit | Revenue: Rp%s\n\n",
+                    $idx + 1,
+                    $product['product_name'],
+                    $product['quantity_sold'],
+                    number_format($product['revenue'], 0, ',', '.')
+                );
+            }
+
+            return $message;
+        } catch (\Throwable $exception) {
+            if (!app()->environment('production')) {
+                Log::error('ChatbotMessageService: Best seller query failed', [
+                    'error' => $exception->getMessage(),
+                    'exception' => get_class($exception),
+                ]);
+            }
+            return "Maaf, gagal mengambil data produk terlaris. Silakan coba lagi.";
+        }
+    }
+
+    /**
+     * Handle cashier performance query
+     *
+     * @param ChatTopic $topic The chat topic
+     * @param string $userContent User's message
+     * @return string Response text
+     */
+    private function handleCashierPerformanceQuery(ChatTopic $topic, string $userContent): string
+    {
+        if (!app()->environment('production')) {
+            Log::info('ChatbotMessageService: Handling cashier performance query', ['topic_id' => $topic->id]);
+        }
+
+        try {
+            $cashiers = $this->reportingService->getTopCashiers(30, 10);
+
+            if (empty($cashiers)) {
+                return "Tidak ada data performa kasir ditemukan.";
+            }
+
+            $message = "👥 *Performa Kasir Top (30 Hari Terakhir)*\n\n";
+
+            foreach ($cashiers as $idx => $cashier) {
+                $message .= sprintf(
+                    "%d. %s\n" .
+                        "   Transaksi: %d | Total: Rp%s | Rata-rata: Rp%s\n\n",
+                    $idx + 1,
+                    $cashier['cashier_name'],
+                    $cashier['transaction_count'],
+                    number_format($cashier['total_sales'], 0, ',', '.'),
+                    number_format($cashier['average_sale'], 0, ',', '.')
+                );
+            }
+
+            return $message;
+        } catch (\Throwable $exception) {
+            if (!app()->environment('production')) {
+                Log::error('ChatbotMessageService: Cashier query failed', [
+                    'error' => $exception->getMessage(),
+                    'exception' => get_class($exception),
+                ]);
+            }
+            return "Maaf, gagal mengambil data performa kasir. Silakan coba lagi.";
+        }
     }
 
     /**
