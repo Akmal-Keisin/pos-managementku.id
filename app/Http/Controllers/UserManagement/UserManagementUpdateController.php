@@ -36,6 +36,10 @@ class UserManagementUpdateController extends Controller
             Log::error('User update failed', [
                 'user_id' => $user->id ?? null,
                 'message' => $e->getMessage(),
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => app()->environment('production') ? null : $e->getTraceAsString(),
             ]);
             return redirect()
                 ->back()

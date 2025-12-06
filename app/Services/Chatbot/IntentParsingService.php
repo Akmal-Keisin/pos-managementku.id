@@ -106,7 +106,9 @@ class IntentParsingService
             $data['description'] = $match[1] ?? '';
         }
 
-        Log::debug('IntentParsingService: Extracted product data', $data);
+        if (!app()->environment('production')) {
+            Log::debug('IntentParsingService: Extracted product data', $data);
+        }
 
         return $data;
     }
@@ -120,12 +122,16 @@ class IntentParsingService
         if (preg_match('/(?:stok|stock)\s+(\d+)/i', $input, $match)) {
             $amount = (int)($match[1] ?? null);
 
-            Log::debug('IntentParsingService: Extracted restock amount', ['amount' => $amount]);
+            if (!app()->environment('production')) {
+                Log::debug('IntentParsingService: Extracted restock amount', ['amount' => $amount]);
+            }
 
             return $amount;
         }
 
-        Log::debug('IntentParsingService: No restock amount found in input');
+        if (!app()->environment('production')) {
+            Log::debug('IntentParsingService: No restock amount found in input');
+        }
 
         return null;
     }
@@ -150,7 +156,9 @@ class IntentParsingService
 
         $productName = trim($productName);
 
-        Log::debug('IntentParsingService: Extracted product name from restock', ['product_name' => $productName]);
+        if (!app()->environment('production')) {
+            Log::debug('IntentParsingService: Extracted product name from restock', ['product_name' => $productName]);
+        }
 
         return $productName;
     }

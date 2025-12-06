@@ -27,11 +27,19 @@ class ChatbotToolController extends Controller
             $tool = new DBToolService();
             $rows = $tool->runIntent($intent, $params);
 
-            Log::info('ChatbotToolController::runIntent', ['intent' => $intent, 'count' => count($rows)]);
+            if (!app()->environment('production')) {
+                Log::info('ChatbotToolController::runIntent', ['intent' => $intent, 'count' => count($rows)]);
+            }
 
             return response()->json(['intent' => $intent, 'rows' => $rows], 200);
         } catch (\Throwable $e) {
-            Log::error('ChatbotToolController error: ' . $e->getMessage());
+            Log::error('ChatbotToolController error: ' . $e->getMessage(), [
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => app()->environment('production') ? null : $e->getTraceAsString(),
+                'intent' => $intent ?? null,
+            ]);
             return response()->json(['error' => 'tool_failed'], 500);
         }
     }

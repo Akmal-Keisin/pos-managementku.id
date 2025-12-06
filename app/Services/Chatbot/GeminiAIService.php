@@ -42,10 +42,12 @@ class GeminiAIService
             // Build conversation history with context
             $prompt = $this->buildPrompt($topic, $userText);
 
-            Log::debug('GeminiAIService: Sending request to Gemini API', [
-                'model' => $this->model,
-                'history_limit' => $this->historyLimit,
-            ]);
+            if (!app()->environment('production')) {
+                Log::debug('GeminiAIService: Sending request to Gemini API', [
+                    'model' => $this->model,
+                    'history_limit' => $this->historyLimit,
+                ]);
+            }
 
             // Call Gemini API
             $response = $this->callGeminiAPI($prompt);
@@ -54,15 +56,21 @@ class GeminiAIService
             $responseText = $response['candidates'][0]['content']['parts'][0]['text']
                 ?? "(No response from AI)";
 
-            Log::info('GeminiAIService: Received response from Gemini', [
-                'response_length' => strlen($responseText),
-            ]);
+            if (!app()->environment('production')) {
+                Log::info('GeminiAIService: Received response from Gemini', [
+                    'response_length' => strlen($responseText),
+                ]);
+            }
 
             return $responseText;
         } catch (\Throwable $exception) {
             Log::error('GeminiAIService: API call failed', [
                 'error' => $exception->getMessage(),
                 'code' => $exception->getCode(),
+                'exception' => get_class($exception),
+                'file' => $exception->getFile(),
+                'line' => $exception->getLine(),
+                'trace' => app()->environment('production') ? null : $exception->getTraceAsString(),
             ]);
 
             throw $exception;
@@ -89,10 +97,12 @@ class GeminiAIService
         // Build complete prompt
         $prompt = $history . "\n\nUSER: " . $userText;
 
-        Log::debug('GeminiAIService: Built prompt for API', [
-            'prompt_length' => strlen($prompt),
-            'message_count' => substr_count($history, "\n\n") + 1,
-        ]);
+        if (!app()->environment('production')) {
+            Log::debug('GeminiAIService: Built prompt for API', [
+                'prompt_length' => strlen($prompt),
+                'message_count' => substr_count($history, "\n\n") + 1,
+            ]);
+        }
 
         return $prompt;
     }
@@ -126,6 +136,7 @@ class GeminiAIService
                 Log::error('GeminiAIService: API returned error status', [
                     'status' => $response->status(),
                     'body' => $response->body(),
+                    'url' => $url,
                 ]);
 
                 throw new \Exception("Gemini API error: {$response->status()}");
@@ -135,6 +146,10 @@ class GeminiAIService
         } catch (\Throwable $exception) {
             Log::error('GeminiAIService: HTTP request failed', [
                 'error' => $exception->getMessage(),
+                'exception' => get_class($exception),
+                'file' => $exception->getFile(),
+                'line' => $exception->getLine(),
+                'trace' => app()->environment('production') ? null : $exception->getTraceAsString(),
             ]);
 
             throw $exception;

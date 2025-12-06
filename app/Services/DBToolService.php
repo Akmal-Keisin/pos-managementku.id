@@ -34,26 +34,30 @@ class DBToolService
         $terms = array_values(array_filter(array_map('trim', $words), fn($w) => strlen($w) >= 2));
 
         // Log normalized input and terms for debugging
-        Log::debug('DBToolService::searchProducts input', ['normalized' => $normalized, 'terms' => $terms]);
+        if (!app()->environment('production')) {
+            Log::debug('DBToolService::searchProducts input', ['normalized' => $normalized, 'terms' => $terms]);
+        }
 
         $query = Product::query();
         $query->where(function ($q) use ($terms) {
             foreach ($terms as $t) {
                 $tEsc = "%" . strtolower($t) . "%";
                 $q->orWhereRaw('LOWER(name) LIKE ?', [$tEsc])
-                  ->orWhereRaw('LOWER(sku) LIKE ?', [$tEsc])
-                  ->orWhereRaw('LOWER(description) LIKE ?', [$tEsc]);
+                    ->orWhereRaw('LOWER(sku) LIKE ?', [$tEsc])
+                    ->orWhereRaw('LOWER(description) LIKE ?', [$tEsc]);
             }
         });
 
         // Log SQL for debugging before executing
         try {
-            Log::debug('DBToolService::searchProducts SQL', ['sql' => $query->toSql(), 'bindings' => $query->getBindings()]);
+            if (!app()->environment('production')) {
+                Log::debug('DBToolService::searchProducts SQL', ['sql' => $query->toSql(), 'bindings' => $query->getBindings()]);
+            }
         } catch (\Throwable $e) {
             // ignore
         }
 
-        $found = $query->limit($limit)->get(['id','name','sku','current_stock','price','description'])->toArray();
+        $found = $query->limit($limit)->get(['id', 'name', 'sku', 'current_stock', 'price', 'description'])->toArray();
 
         // If nothing matched, try AND-based match: all terms must appear in the name
         if (empty($found) && count($terms) > 1) {
@@ -63,9 +67,12 @@ class DBToolService
                 $andQuery->whereRaw('LOWER(name) LIKE ?', [$tEsc]);
             }
             try {
-                Log::debug('DBToolService::searchProducts trying AND-match', ['terms' => $terms, 'sql' => $andQuery->toSql(), 'bindings' => $andQuery->getBindings()]);
-            } catch (\Throwable $e) {}
-            $found = $andQuery->limit($limit)->get(['id','name','sku','current_stock','price','description'])->toArray();
+                if (!app()->environment('production')) {
+                    Log::debug('DBToolService::searchProducts trying AND-match', ['terms' => $terms, 'sql' => $andQuery->toSql(), 'bindings' => $andQuery->getBindings()]);
+                }
+            } catch (\Throwable $e) {
+            }
+            $found = $andQuery->limit($limit)->get(['id', 'name', 'sku', 'current_stock', 'price', 'description'])->toArray();
         }
 
         // If nothing matched, try fallback: remove keywords and search whole phrase
@@ -79,7 +86,7 @@ class DBToolService
                     ->orWhere('description', 'like', $wild)
                     ->orWhere('sku', 'like', "%{$fallback}%")
                     ->limit($limit)
-                    ->get(['id','name','sku','current_stock','price','description'])
+                    ->get(['id', 'name', 'sku', 'current_stock', 'price', 'description'])
                     ->toArray();
             }
         }
@@ -105,7 +112,9 @@ class DBToolService
         }
 
         if (!empty($rows)) {
-            Log::debug('DBToolService::searchProducts', ['count' => count($rows), 'terms' => $terms]);
+            if (!app()->environment('production')) {
+                Log::debug('DBToolService::searchProducts', ['count' => count($rows), 'terms' => $terms]);
+            }
         }
 
         return $rows;
@@ -148,7 +157,7 @@ class DBToolService
             case 'transactions_recent':
                 // simple recent transactions summary
                 $limit = (int) ($params['limit'] ?? 10);
-                $rows = \App\Models\Transaction::orderBy('created_at', 'desc')->limit($limit)->get(['id','user_id','total','status','created_at'])->toArray();
+                $rows = \App\Models\Transaction::orderBy('created_at', 'desc')->limit($limit)->get(['id', 'user_id', 'total', 'status', 'created_at'])->toArray();
                 return $rows;
             default:
                 return [];

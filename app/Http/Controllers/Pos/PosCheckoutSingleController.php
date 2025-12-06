@@ -68,6 +68,10 @@ class PosCheckoutSingleController extends Controller
                 'product_id' => $data['product_id'] ?? null,
                 'quantity' => $data['quantity'] ?? null,
                 'message' => $e->getMessage(),
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => app()->environment('production') ? null : $e->getTraceAsString(),
             ]);
             return redirect()->back()->with('alert', [
                 'type' => 'error',

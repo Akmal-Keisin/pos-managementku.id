@@ -32,6 +32,10 @@ class UserManagementStoreController extends Controller
                 'username' => $request->username ?? null,
                 'role' => $request->role ?? null,
                 'message' => $e->getMessage(),
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => app()->environment('production') ? null : $e->getTraceAsString(),
             ]);
             return redirect()
                 ->back()

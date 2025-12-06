@@ -85,6 +85,10 @@ class CartCheckoutController extends Controller
             Log::error('POS cart checkout failed', [
                 'user_id' => $user->id ?? null,
                 'message' => $e->getMessage(),
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => app()->environment('production') ? null : $e->getTraceAsString(),
             ]);
             return redirect()->back()->with('alert', [
                 'type' => 'error',
