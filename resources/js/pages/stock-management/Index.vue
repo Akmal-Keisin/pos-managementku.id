@@ -4,6 +4,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
+    Pagination,
+    PaginationContent,
+    PaginationEllipsis,
+    PaginationFirst,
+    PaginationItem,
+    PaginationLast,
+    PaginationNext,
+    PaginationPrevious,
+} from '@/components/ui/pagination';
+import {
     Select,
     SelectContent,
     SelectItem,
@@ -18,16 +28,6 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import {
-    Pagination,
-    PaginationContent,
-    PaginationEllipsis,
-    PaginationFirst,
-    PaginationItem,
-    PaginationLast,
-    PaginationNext,
-    PaginationPrevious,
-} from '@/components/ui/pagination';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/vue3';
@@ -36,6 +36,7 @@ import {
     ArrowUpIcon,
     CalendarIcon,
     FilterIcon,
+    History,
     PackageIcon,
     Plus,
     XIcon,
@@ -210,7 +211,7 @@ const paginationPages = computed(() => {
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                     <div class="rounded-lg bg-primary/10 p-2">
-                        <PackageIcon class="h-6 w-6 text-primary" />
+                        <History class="h-6 w-6 text-primary" />
                     </div>
                     <div>
                         <h1 class="text-2xl font-bold">Stock Management</h1>
@@ -479,12 +480,20 @@ const paginationPages = computed(() => {
                             "
                         />
 
-                        <template v-for="(page, index) in paginationPages" :key="index">
-                            <PaginationEllipsis v-if="page === 'ellipsis'" :index="index" />
+                        <template
+                            v-for="(page, index) in paginationPages"
+                            :key="index"
+                        >
+                            <PaginationEllipsis
+                                v-if="page === 'ellipsis'"
+                                :index="index"
+                            />
                             <PaginationItem
                                 v-else
                                 :value="page"
-                                :is-active="page === props.stockHistories.current_page"
+                                :is-active="
+                                    page === props.stockHistories.current_page
+                                "
                                 @click="handlePageChange(page)"
                             >
                                 {{ page }}
@@ -507,7 +516,9 @@ const paginationPages = computed(() => {
                                 props.stockHistories.current_page ===
                                 props.stockHistories.last_page
                             "
-                            @click="handlePageChange(props.stockHistories.last_page)"
+                            @click="
+                                handlePageChange(props.stockHistories.last_page)
+                            "
                         />
                     </PaginationContent>
                 </Pagination>

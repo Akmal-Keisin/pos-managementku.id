@@ -17,6 +17,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
     Pagination,
     PaginationContent,
@@ -38,7 +39,15 @@ import {
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { MoreVertical, Plus, Search } from 'lucide-vue-next';
+import {
+    CalendarIcon,
+    FilterIcon,
+    MoreVertical,
+    PackageIcon,
+    Plus,
+    SearchIcon,
+    XIcon,
+} from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface Product {
@@ -60,6 +69,10 @@ interface Props {
     };
     filters: {
         search?: string;
+        start_date?: string;
+        end_date?: string;
+        price_min?: number | string;
+        price_max?: number | string;
     };
 }
 
@@ -71,15 +84,44 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const searchQuery = ref(props.filters.search || '');
+const startDateFilter = ref(props.filters.start_date || '');
+const endDateFilter = ref(props.filters.end_date || '');
+const priceMinFilter = ref(props.filters.price_min?.toString() || '');
+const priceMaxFilter = ref(props.filters.price_max?.toString() || '');
 const deleteDialog = ref(false);
 const productToDelete = ref<Product | null>(null);
 
-const handleSearch = () => {
+const hasActiveFilters = computed(() => {
+    return (
+        searchQuery.value ||
+        startDateFilter.value ||
+        endDateFilter.value ||
+        priceMinFilter.value ||
+        priceMaxFilter.value
+    );
+});
+
+const handleFilter = () => {
     router.get(
         '/product-management',
-        { search: searchQuery.value },
+        {
+            search: searchQuery.value || undefined,
+            start_date: startDateFilter.value || undefined,
+            end_date: endDateFilter.value || undefined,
+            price_min: priceMinFilter.value || undefined,
+            price_max: priceMaxFilter.value || undefined,
+        },
         { preserveState: true },
     );
+};
+
+const clearFilters = () => {
+    searchQuery.value = '';
+    startDateFilter.value = '';
+    endDateFilter.value = '';
+    priceMinFilter.value = '';
+    priceMaxFilter.value = '';
+    router.get('/product-management', {}, { preserveState: false });
 };
 
 const openDeleteDialog = (product: Product) => {
@@ -104,6 +146,10 @@ const handlePageChange = (page: number) => {
         {
             page,
             search: searchQuery.value || undefined,
+            start_date: startDateFilter.value || undefined,
+            end_date: endDateFilter.value || undefined,
+            price_min: priceMinFilter.value || undefined,
+            price_max: priceMaxFilter.value || undefined,
         },
         { preserveState: true, preserveScroll: true },
     );
@@ -146,7 +192,17 @@ const paginationPages = computed(() => {
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex h-full flex-1 flex-col gap-4 p-4">
             <div class="flex items-center justify-between">
-                <h1 class="text-2xl font-bold">Product Management</h1>
+                <div class="flex items-center gap-3">
+                    <div class="rounded-lg bg-primary/10 p-2">
+                        <PackageIcon class="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold">Product Management</h1>
+                        <p class="text-sm text-muted-foreground">
+                            View product details and manage your inventory.
+                        </p>
+                    </div>
+                </div>
                 <Link href="/product-management/create">
                     <Button>
                         <Plus class="mr-2 h-4 w-4" />
@@ -155,16 +211,106 @@ const paginationPages = computed(() => {
                 </Link>
             </div>
 
-            <div class="mb-4 flex gap-2">
-                <Input
-                    v-model="searchQuery"
-                    placeholder="Search products..."
-                    class="max-w-sm"
-                    @keyup.enter="handleSearch"
-                />
-                <Button @click="handleSearch">
-                    <Search class="h-4 w-4" />
-                </Button>
+            <!-- Filters Section -->
+            <div class="rounded-lg border bg-card p-4 shadow-sm">
+                <div class="mb-4 flex items-center gap-2">
+                    <FilterIcon class="h-4 w-4 text-muted-foreground" />
+                    <h3 class="font-semibold">Filters</h3>
+                    <Button
+                        v-if="hasActiveFilters"
+                        variant="ghost"
+                        size="sm"
+                        @click="clearFilters"
+                        class="ml-auto"
+                    >
+                        <XIcon class="mr-1 h-3 w-3" />
+                        Clear Filters
+                    </Button>
+                </div>
+
+                <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+                    <!-- Start Date Filter -->
+                    <div class="space-y-2">
+                        <Label for="start_date">Start Date</Label>
+                        <div class="relative">
+                            <CalendarIcon
+                                class="absolute top-1/2 left-2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                            />
+                            <Input
+                                id="start_date"
+                                type="date"
+                                v-model="startDateFilter"
+                                class="pl-8"
+                            />
+                        </div>
+                    </div>
+
+                    <!-- End Date Filter -->
+                    <div class="space-y-2">
+                        <Label for="end_date">End Date</Label>
+                        <div class="relative">
+                            <CalendarIcon
+                                class="absolute top-1/2 left-2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                            />
+                            <Input
+                                id="end_date"
+                                type="date"
+                                v-model="endDateFilter"
+                                class="pl-8"
+                            />
+                        </div>
+                    </div>
+
+                    <!-- Min Price Filter -->
+                    <div class="space-y-2">
+                        <Label for="price_min">Min Price</Label>
+                        <Input
+                            id="price_min"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            v-model="priceMinFilter"
+                            placeholder="0"
+                        />
+                    </div>
+
+                    <!-- Max Price Filter -->
+                    <div class="space-y-2">
+                        <Label for="price_max">Max Price</Label>
+                        <Input
+                            id="price_max"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            v-model="priceMaxFilter"
+                            placeholder="0"
+                        />
+                    </div>
+
+                    <!-- Search -->
+                    <div class="space-y-2">
+                        <Label for="search">Search</Label>
+                        <div class="relative">
+                            <SearchIcon
+                                class="absolute top-1/2 left-2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                            />
+                            <Input
+                                id="search"
+                                v-model="searchQuery"
+                                placeholder="Search products..."
+                                class="pl-8"
+                                @keydown.enter="handleFilter"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 flex justify-end">
+                    <Button @click="handleFilter">
+                        <FilterIcon class="mr-2 h-4 w-4" />
+                        Apply Filters
+                    </Button>
+                </div>
             </div>
 
             <div class="rounded-md border">

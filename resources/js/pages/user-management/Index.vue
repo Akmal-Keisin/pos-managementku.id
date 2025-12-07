@@ -17,6 +17,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
     Pagination,
     PaginationContent,
@@ -28,6 +29,13 @@ import {
     PaginationPrevious,
 } from '@/components/ui/pagination';
 import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
     Table,
     TableBody,
     TableCell,
@@ -38,7 +46,15 @@ import {
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { MoreVertical, Plus, Search } from 'lucide-vue-next';
+import {
+    CalendarIcon,
+    FilterIcon,
+    MoreVertical,
+    Plus,
+    SearchIcon,
+    Users,
+    XIcon,
+} from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface User {
@@ -58,6 +74,9 @@ interface Props {
     };
     filters: {
         search?: string;
+        role?: string;
+        start_date?: string;
+        end_date?: string;
     };
 }
 
@@ -69,15 +88,40 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const searchQuery = ref(props.filters.search || '');
+const roleFilter = ref(props.filters.role || '');
+const startDateFilter = ref(props.filters.start_date || '');
+const endDateFilter = ref(props.filters.end_date || '');
 const deleteDialog = ref(false);
 const userToDelete = ref<User | null>(null);
 
-const handleSearch = () => {
+const hasActiveFilters = computed(() => {
+    return (
+        searchQuery.value ||
+        roleFilter.value ||
+        startDateFilter.value ||
+        endDateFilter.value
+    );
+});
+
+const handleFilter = () => {
     router.get(
         '/user-management',
-        { search: searchQuery.value },
+        {
+            search: searchQuery.value || undefined,
+            role: roleFilter.value || undefined,
+            start_date: startDateFilter.value || undefined,
+            end_date: endDateFilter.value || undefined,
+        },
         { preserveState: true },
     );
+};
+
+const clearFilters = () => {
+    searchQuery.value = '';
+    roleFilter.value = '';
+    startDateFilter.value = '';
+    endDateFilter.value = '';
+    router.get('/user-management', {}, { preserveState: false });
 };
 
 const openDeleteDialog = (user: User) => {
@@ -102,6 +146,9 @@ const handlePageChange = (page: number) => {
         {
             page,
             search: searchQuery.value || undefined,
+            role: roleFilter.value || undefined,
+            start_date: startDateFilter.value || undefined,
+            end_date: endDateFilter.value || undefined,
         },
         { preserveState: true, preserveScroll: true },
     );
@@ -144,7 +191,17 @@ const paginationPages = computed(() => {
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex h-full flex-1 flex-col gap-4 p-4">
             <div class="flex items-center justify-between">
-                <h1 class="text-2xl font-bold">User Management</h1>
+                <div class="flex items-center gap-3">
+                    <div class="rounded-lg bg-primary/10 p-2">
+                        <Users class="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold">User Management</h1>
+                        <p class="text-sm text-muted-foreground">
+                            View user details and manage your users.
+                        </p>
+                    </div>
+                </div>
                 <Link href="/user-management/create">
                     <Button>
                         <Plus class="mr-2 h-4 w-4" />
@@ -153,16 +210,98 @@ const paginationPages = computed(() => {
                 </Link>
             </div>
 
-            <div class="mb-4 flex gap-2">
-                <Input
-                    v-model="searchQuery"
-                    placeholder="Search users..."
-                    class="max-w-sm"
-                    @keyup.enter="handleSearch"
-                />
-                <Button @click="handleSearch">
-                    <Search class="h-4 w-4" />
-                </Button>
+            <!-- Filters Section -->
+            <div class="rounded-lg border bg-card p-4 shadow-sm">
+                <div class="mb-4 flex items-center gap-2">
+                    <FilterIcon class="h-4 w-4 text-muted-foreground" />
+                    <h3 class="font-semibold">Filters</h3>
+                    <Button
+                        v-if="hasActiveFilters"
+                        variant="ghost"
+                        size="sm"
+                        @click="clearFilters"
+                        class="ml-auto"
+                    >
+                        <XIcon class="mr-1 h-3 w-3" />
+                        Clear Filters
+                    </Button>
+                </div>
+
+                <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <!-- Start Date Filter -->
+                    <div class="space-y-2">
+                        <Label for="start_date">Start Date</Label>
+                        <div class="relative">
+                            <CalendarIcon
+                                class="absolute top-1/2 left-2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                            />
+                            <Input
+                                id="start_date"
+                                type="date"
+                                v-model="startDateFilter"
+                                class="pl-8"
+                            />
+                        </div>
+                    </div>
+
+                    <!-- End Date Filter -->
+                    <div class="space-y-2">
+                        <Label for="end_date">End Date</Label>
+                        <div class="relative">
+                            <CalendarIcon
+                                class="absolute top-1/2 left-2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                            />
+                            <Input
+                                id="end_date"
+                                type="date"
+                                v-model="endDateFilter"
+                                class="pl-8"
+                            />
+                        </div>
+                    </div>
+
+                    <!-- Role Filter -->
+                    <div class="space-y-2">
+                        <Label for="role">Role</Label>
+                        <Select v-model="roleFilter">
+                            <SelectTrigger id="role">
+                                <SelectValue placeholder="All roles" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="">All roles</SelectItem>
+                                <SelectItem value="super-admin"
+                                    >Super Admin</SelectItem
+                                >
+                                <SelectItem value="admin">Admin</SelectItem>
+                                <SelectItem value="cashier">Cashier</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <!-- Search -->
+                    <div class="space-y-2">
+                        <Label for="search">Search</Label>
+                        <div class="relative">
+                            <SearchIcon
+                                class="absolute top-1/2 left-2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                            />
+                            <Input
+                                id="search"
+                                v-model="searchQuery"
+                                placeholder="Search users..."
+                                class="pl-8"
+                                @keydown.enter="handleFilter"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 flex justify-end">
+                    <Button @click="handleFilter">
+                        <FilterIcon class="mr-2 h-4 w-4" />
+                        Apply Filters
+                    </Button>
+                </div>
             </div>
 
             <div class="rounded-md border">

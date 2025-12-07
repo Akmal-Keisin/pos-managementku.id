@@ -3,8 +3,10 @@
 namespace App\Providers;
 
 use App\Http\Responses\LoginResponse;
+use App\Http\Responses\LogoutResponse;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
+use Laravel\Fortify\Contracts\LogoutResponse as LogoutResponseContract;
 use Inertia\Inertia;
 
 class AppServiceProvider extends ServiceProvider
@@ -15,6 +17,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(LoginResponseContract::class, LoginResponse::class);
+        $this->app->singleton(LogoutResponseContract::class, LogoutResponse::class);
     }
 
     /**

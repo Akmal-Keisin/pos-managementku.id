@@ -34,6 +34,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import {
     CalendarIcon,
     EyeIcon,
+    FileText,
     FilterIcon,
     ReceiptIcon,
     SearchIcon,
@@ -215,7 +216,7 @@ const paginationPages = computed(() => {
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                     <div class="rounded-lg bg-primary/10 p-2">
-                        <ReceiptIcon class="h-6 w-6 text-primary" />
+                        <FileText class="h-6 w-6 text-primary" />
                     </div>
                     <div>
                         <h1 class="text-2xl font-bold">Transaction Reports</h1>

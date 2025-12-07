@@ -58,7 +58,7 @@ const navigationConfig = {
         roles: ['super-admin', 'admin'],
     },
     reporting: {
-        title: 'Reporting',
+        title: 'Transaction Reports',
         href: '/reporting',
         icon: FileText,
         roles: ['super-admin', 'admin'],

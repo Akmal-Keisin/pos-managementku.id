@@ -22,9 +22,9 @@ class LoginResponse implements LoginResponseContract
 
         // Redirect based on user role
         $redirectUrl = match ($user->role) {
-            'cashier' => '/pos',
-            'admin', 'super-admin' => '/dashboard',
-            default => '/dashboard',
+            'cashier' => route('pos-terminal.index'),
+            'admin', 'super-admin' => route('dashboard'),
+            default => route('dashboard'),
         };
 
         return $request->wantsJson()
